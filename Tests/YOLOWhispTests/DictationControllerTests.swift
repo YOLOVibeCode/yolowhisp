@@ -187,4 +187,11 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(pill.stateHistory.last, .idle)
         XCTAssertFalse(controller.isActive)
     }
+
+    func testHistoryEntryContainsTargetApp() async {
+        controller.frontmostAppProvider = { "TestApp" }
+        controller.startDictation()
+        await controller.stopDictation()
+        XCTAssertEqual(historyStore.savedEntry?.targetApp, "TestApp")
+    }
 }

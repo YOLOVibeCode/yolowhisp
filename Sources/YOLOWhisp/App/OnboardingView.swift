@@ -1,10 +1,21 @@
 import SwiftUI
+import Cocoa
 
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 49
+    @AppStorage("hotkeyModifiers") private var hotkeyModifiers: Int = 0
     @State private var selectedShortcut: String = "globe"
     @State private var micPermission: Bool = false
     @State private var accessibilityPermission: Bool = false
+
+    let permissionChecker: any PermissionChecking
+
+    private var canProceed: Bool {
+        micPermission && accessibilityPermission
+    }
+
+    let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 24) {
@@ -35,7 +46,10 @@ struct OnboardingView: View {
                         Spacer()
                         if !micPermission {
                             Button("Grant") {
-                                // Request mic permission
+                                Task {
+                                    let granted = await permissionChecker.requestMicrophonePermission()
+                                    await MainActor.run { micPermission = granted }
+                                }
                             }
                         }
                     }
@@ -47,7 +61,7 @@ struct OnboardingView: View {
                         Spacer()
                         if !accessibilityPermission {
                             Button("Grant") {
-                                // Open System Settings
+                                permissionChecker.openAccessibilitySettings()
                             }
                         }
                     }
@@ -62,14 +76,24 @@ struct OnboardingView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .disabled(!canProceed)
         }
         .padding(40)
         .frame(width: 500, height: 450)
+        .onAppear {
+            micPermission = permissionChecker.checkMicrophonePermission()
+            accessibilityPermission = permissionChecker.checkAccessibilityPermission()
+        }
+        .onReceive(timer) { _ in
+            accessibilityPermission = permissionChecker.checkAccessibilityPermission()
+            micPermission = permissionChecker.checkMicrophonePermission()
+        }
     }
 
     private func shortcutButton(_ label: String, tag: String, symbol: String) -> some View {
         Button {
             selectedShortcut = tag
+            applyPreset(tag)
         } label: {
             VStack {
                 Image(systemName: symbol)
@@ -81,5 +105,21 @@ struct OnboardingView: View {
         }
         .buttonStyle(.bordered)
         .tint(selectedShortcut == tag ? .accentColor : .secondary)
+    }
+
+    private func applyPreset(_ tag: String) {
+        switch tag {
+        case "globe":
+            hotkeyKeyCode = 179
+            hotkeyModifiers = 0
+        case "ctrlshift":
+            hotkeyKeyCode = 56
+            hotkeyModifiers = Int(NSEvent.ModifierFlags.control.rawValue | NSEvent.ModifierFlags.shift.rawValue)
+        case "f5":
+            hotkeyKeyCode = 96
+            hotkeyModifiers = 0
+        default:
+            break
+        }
     }
 }

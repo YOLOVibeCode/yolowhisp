@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 public final class DictationController: ObservableObject {
@@ -11,6 +12,7 @@ public final class DictationController: ObservableObject {
     @Published public private(set) var isActive: Bool = false
     public var outputMode: OutputMode = .simulatedKeystrokes
     public var postProcessEnabled: Bool = false
+    public var frontmostAppProvider: () -> String? = { NSWorkspace.shared.frontmostApplication?.localizedName }
 
     public init(
         audioCapture: any AudioCapturing,
@@ -37,6 +39,7 @@ public final class DictationController: ObservableObject {
 
     public func stopDictation() async {
         guard isActive else { return }
+        let targetApp = frontmostAppProvider()
         let audioData = audioCapture.stopCapture()
         pill.setState(.processing)
 
@@ -58,7 +61,7 @@ public final class DictationController: ObservableObject {
                 processedText: processedText,
                 duration: result.duration,
                 modelUsed: result.modelUsed,
-                targetApp: nil
+                targetApp: targetApp
             )
             try historyStore.save(entry: entry)
         } catch {

@@ -28,7 +28,16 @@ struct YOLOWhispApp: App {
         )
     }()
 
+    private let hotkeyManager = HotkeyManager()
+
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    @AppStorage("outputMode") private var outputModeSetting: String = OutputMode.simulatedKeystrokes.rawValue
+    @AppStorage("aiPolishEnabled") private var aiPolishEnabled: Bool = false
+    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 49
+    @AppStorage("hotkeyModifiers") private var hotkeyModifiers: Int = 0
+    @AppStorage("hotkeyTriggerMode") private var hotkeyTriggerMode: String = TriggerMode.hold.rawValue
+
+    private let updateChecker = GitHubUpdateChecker()
 
     private var historyStore: HistoryStore {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -47,6 +56,11 @@ struct YOLOWhispApp: App {
                 }
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
+            .onAppear {
+                controller.outputMode = OutputMode(rawValue: outputModeSetting) ?? .simulatedKeystrokes
+                controller.postProcessEnabled = aiPolishEnabled
+                setupHotkey()
+            }
             Divider()
             Button("History") {
                 openHistoryWindow()
@@ -54,6 +68,10 @@ struct YOLOWhispApp: App {
             Button("Settings...") {
                 openSettingsWindow()
             }
+            Button("Check for Updates...") {
+                updateChecker.checkForUpdates()
+            }
+            .disabled(!updateChecker.canCheckForUpdates)
             Divider()
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
@@ -61,10 +79,42 @@ struct YOLOWhispApp: App {
             .keyboardShortcut("q")
         }
 
+        .onChange(of: outputModeSetting) { _, newValue in
+            controller.outputMode = OutputMode(rawValue: newValue) ?? .simulatedKeystrokes
+        }
+        .onChange(of: aiPolishEnabled) { _, newValue in
+            controller.postProcessEnabled = newValue
+        }
+
         Window("Onboarding", id: "onboarding") {
-            OnboardingView()
+            OnboardingView(permissionChecker: PermissionManager())
         }
         .windowResizability(.contentSize)
+    }
+
+    private func setupHotkey() {
+        hotkeyManager.unregisterAll()
+        let mode = TriggerMode(rawValue: hotkeyTriggerMode) ?? .hold
+        let config = HotkeyConfig(
+            keyCode: UInt16(hotkeyKeyCode),
+            modifiers: UInt(hotkeyModifiers),
+            triggerMode: mode
+        )
+        if mode == .hold {
+            hotkeyManager.register(
+                hotkey: config,
+                onKeyDown: { [controller] in controller.startDictation() },
+                onKeyUp: { [controller] in Task { await controller.stopDictation() } }
+            )
+        } else {
+            hotkeyManager.register(hotkey: config) { [controller] in
+                if controller.isActive {
+                    Task { await controller.stopDictation() }
+                } else {
+                    controller.startDictation()
+                }
+            }
+        }
     }
 
     private func openSettingsWindow() {

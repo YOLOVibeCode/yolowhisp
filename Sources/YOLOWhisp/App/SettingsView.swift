@@ -8,14 +8,27 @@ struct SettingsView: View {
     @AppStorage("aiModelName") private var aiModelName: String = ""
     @AppStorage("aiApiKey") private var aiApiKey: String = ""
     @AppStorage("retentionDays") private var retentionDays: Int = 30
+    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 49
+    @AppStorage("hotkeyModifiers") private var hotkeyModifiers: Int = 0
+
+    @State private var isRecording: Bool = false
+    private let recorder = HotkeyRecorderController()
 
     var body: some View {
         Form {
             Section("Hotkey") {
                 HStack {
-                    Text("Current shortcut: Globe (double-tap)")
+                    Text("Current shortcut: \(hotkeyDescription)")
                     Spacer()
-                    Button("Record New...") {}
+                    Button(isRecording ? "Press a key..." : "Record New...") {
+                        isRecording = true
+                        recorder.startRecording { config in
+                            hotkeyKeyCode = Int(config.keyCode)
+                            hotkeyModifiers = Int(config.modifiers)
+                            isRecording = false
+                        }
+                    }
+                    .disabled(isRecording)
                 }
             }
 
@@ -68,5 +81,27 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 450, height: 500)
         .padding()
+    }
+
+    private var hotkeyDescription: String {
+        var parts: [String] = []
+        let mods = UInt(hotkeyModifiers)
+        if mods & NSEvent.ModifierFlags.control.rawValue != 0 { parts.append("⌃") }
+        if mods & NSEvent.ModifierFlags.option.rawValue != 0 { parts.append("⌥") }
+        if mods & NSEvent.ModifierFlags.shift.rawValue != 0 { parts.append("⇧") }
+        if mods & NSEvent.ModifierFlags.command.rawValue != 0 { parts.append("⌘") }
+
+        let keyName: String
+        switch hotkeyKeyCode {
+        case 49: keyName = "Space"
+        case 96: keyName = "F5"
+        case 179: keyName = "Globe"
+        case 36: keyName = "Return"
+        case 48: keyName = "Tab"
+        case 53: keyName = "Escape"
+        default: keyName = "Key(\(hotkeyKeyCode))"
+        }
+        parts.append(keyName)
+        return parts.joined()
     }
 }

@@ -95,6 +95,62 @@ final class HotkeyTests: XCTestCase {
 
     // MARK: - HotkeyRecorderController
 
+    // MARK: - Hold mode (keyDown + keyUp)
+
+    func testRegisterWithKeyUpHandler() {
+        let manager = HotkeyManager()
+        let config = HotkeyConfig(keyCode: 49, modifiers: 0, triggerMode: .hold)
+        XCTAssertEqual(manager.registeredCount, 0)
+        manager.register(hotkey: config, onKeyDown: {}, onKeyUp: {})
+        XCTAssertEqual(manager.registeredCount, 1)
+    }
+
+    func testKeyUpHandlerFires() {
+        // We can't simulate NSEvents in unit tests, but we can verify handler storage.
+        let manager = HotkeyManager()
+        var downCalled = false
+        var upCalled = false
+        let config = HotkeyConfig(keyCode: 49, modifiers: 0, triggerMode: .hold)
+        manager.register(hotkey: config, onKeyDown: { downCalled = true }, onKeyUp: { upCalled = true })
+        // Handlers are stored — registeredCount reflects keyDown handler
+        XCTAssertEqual(manager.registeredCount, 1)
+        // keyUpHandlerCount should also be 1
+        XCTAssertEqual(manager.keyUpHandlerCount, 1)
+        // Unregister should clear both
+        manager.unregister(hotkey: config)
+        XCTAssertEqual(manager.registeredCount, 0)
+        XCTAssertEqual(manager.keyUpHandlerCount, 0)
+    }
+
+    func testHotkeyConfigFromAppStorage() {
+        // Simulate building a HotkeyConfig from raw AppStorage values
+        let keyCode: Int = 49
+        let modifiers: Int = 0
+        let triggerModeRaw: String = TriggerMode.hold.rawValue
+
+        let config = HotkeyConfig(
+            keyCode: UInt16(keyCode),
+            modifiers: UInt(modifiers),
+            triggerMode: TriggerMode(rawValue: triggerModeRaw) ?? .hold
+        )
+        XCTAssertEqual(config.keyCode, 49)
+        XCTAssertEqual(config.modifiers, 0)
+        XCTAssertEqual(config.triggerMode, .hold)
+    }
+
+    func testUnregisterAllClearsKeyUpHandlers() {
+        let manager = HotkeyManager()
+        manager.register(hotkey: HotkeyConfig(keyCode: 0, modifiers: 0, triggerMode: .hold),
+                         onKeyDown: {}, onKeyUp: {})
+        manager.register(hotkey: HotkeyConfig(keyCode: 1, modifiers: 0, triggerMode: .hold),
+                         onKeyDown: {}, onKeyUp: {})
+        XCTAssertEqual(manager.keyUpHandlerCount, 2)
+        manager.unregisterAll()
+        XCTAssertEqual(manager.keyUpHandlerCount, 0)
+    }
+
+    // MARK: - HotkeyRecorderController
+
     func testRecorderIsRecordingState() {
         let recorder = HotkeyRecorderController()
         XCTAssertFalse(recorder.isRecording)

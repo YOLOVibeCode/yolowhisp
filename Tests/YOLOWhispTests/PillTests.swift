@@ -138,4 +138,58 @@ final class PillTests: XCTestCase {
         vc.hide()
         XCTAssertFalse(vc.isVisible)
     }
+
+    // MARK: - NSPanel tests
+
+    func testPillViewControllerCreatesPanel() {
+        let vc = PillViewController()
+        vc.show()
+        XCTAssertNotNil(vc.panel, "show() should create an NSPanel")
+    }
+
+    func testPanelIsFloatingNonActivating() {
+        let vc = PillViewController()
+        vc.show()
+        guard let panel = vc.panel else {
+            return XCTFail("Panel should exist after show()")
+        }
+        XCTAssertEqual(panel.level, .floating)
+        XCTAssertTrue(panel.styleMask.contains(.nonactivatingPanel))
+    }
+
+    func testPanelIsNotOpaque() {
+        let vc = PillViewController()
+        vc.show()
+        guard let panel = vc.panel else {
+            return XCTFail("Panel should exist after show()")
+        }
+        XCTAssertFalse(panel.isOpaque)
+    }
+
+    func testStateChangesColor() {
+        let vc = PillViewController()
+        vc.setState(.recording)
+        XCTAssertEqual(vc.pillColor, .systemRed)
+        vc.setState(.processing)
+        XCTAssertEqual(vc.pillColor, .systemBlue)
+        vc.setState(.idle)
+        XCTAssertEqual(vc.pillColor, .darkGray)
+    }
+
+    func testPanelPositionMatchesStoredPosition() {
+        let defaults = UserDefaults(suiteName: "test.pill.panel")!
+        defaults.removePersistentDomain(forName: "test.pill.panel")
+
+        let vc = PillViewController(userDefaults: defaults)
+        vc.show()
+        vc.position = CGPoint(x: 300, y: 400)
+
+        guard let panel = vc.panel else {
+            return XCTFail("Panel should exist after show()")
+        }
+        XCTAssertEqual(panel.frame.origin.x, 300, accuracy: 1)
+        XCTAssertEqual(panel.frame.origin.y, 400, accuracy: 1)
+
+        defaults.removePersistentDomain(forName: "test.pill.panel")
+    }
 }

@@ -6,6 +6,7 @@ public final class AudioCaptureEngine: AudioCapturing {
     public static let targetChannels: AVAudioChannelCount = 1
 
     public private(set) var isCapturing: Bool = false
+    public var audioLevelCallback: ((Float) -> Void)?
 
     /// Optional audio device ID for mic selection (e.g., Scarlett 2i2).
     /// Set before calling startCapture(). nil = system default.
@@ -64,11 +65,19 @@ public final class AudioCaptureEngine: AudioCapturing {
             guard status != .error, error == nil else { return }
 
             if let channelData = convertedBuffer.int16ChannelData {
-                let byteCount = Int(convertedBuffer.frameLength) * MemoryLayout<Int16>.size
+                let frameCount = Int(convertedBuffer.frameLength)
+                let byteCount = frameCount * MemoryLayout<Int16>.size
                 let data = Data(bytes: channelData[0], count: byteCount)
                 self.bufferLock.lock()
                 self.buffers.append(data)
                 self.bufferLock.unlock()
+
+                if self.audioLevelCallback != nil {
+                    let rms = Self.computeRMS(from: channelData[0], count: frameCount)
+                    DispatchQueue.main.async {
+                        self.audioLevelCallback?(rms)
+                    }
+                }
             }
         }
 
@@ -93,6 +102,19 @@ public final class AudioCaptureEngine: AudioCapturing {
         bufferLock.unlock()
 
         return pcmData
+    }
+
+    // MARK: - Audio Level
+
+    public static func computeRMS(from pointer: UnsafePointer<Int16>, count: Int) -> Float {
+        guard count > 0 else { return 0.0 }
+        var sumSquares: Float = 0.0
+        for i in 0..<count {
+            let sample = Float(pointer[i])
+            sumSquares += sample * sample
+        }
+        let rms = sqrtf(sumSquares / Float(count))
+        return rms / 32768.0
     }
 
     // MARK: - WAV Utilities
