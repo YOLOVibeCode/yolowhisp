@@ -1,0 +1,23 @@
+# Benchmark data (large - download via setup.sh)
+benchmark/LibriSpeech/
+benchmark/wav_samples/
+benchmark/models/
+benchmark/test-clean-sample.tar.gz
+benchmark/*.txt
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Models (large - download via setup.sh)
+Models/*.bin
