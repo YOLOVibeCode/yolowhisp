@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build release binary (arm64)
+        run: |
+          swift build -c release --arch arm64
+          mkdir -p dist
+          cp .build/release/YOLOWhisp dist/YOLOWhisp-arm64
+
+      - name: Build release binary (x86_64)
+        run: |
+          swift build -c release --arch x86_64
+          cp .build/release/YOLOWhisp dist/YOLOWhisp-x86_64
+
+      - name: Create universal binary
+        run: |
+          lipo -create \
+            dist/YOLOWhisp-arm64 \
+            dist/YOLOWhisp-x86_64 \
+            -output dist/YOLOWhisp
+          chmod +x dist/YOLOWhisp
+
+      - name: Create macOS app bundle
+        run: |
+          APP_DIR="dist/YOLOWhisp.app/Contents"
+          mkdir -p "$APP_DIR/MacOS"
+          mkdir -p "$APP_DIR/Resources"
+
+          cp dist/YOLOWhisp "$APP_DIR/MacOS/YOLOWhisp"
+
+          cat > "$APP_DIR/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>YOLOWhisp</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.yolovibecode.yolowhisp</string>
+            <key>CFBundleName</key>
+            <string>YOLOWhisp</string>
+            <key>CFBundleVersion</key>
+            <string>${{ steps.version.outputs.VERSION }}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${{ steps.version.outputs.VERSION }}</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>14.0</string>
+            <key>LSUIElement</key>
+            <true/>
+            <key>NSMicrophoneUsageDescription</key>
+            <string>YOLOWhisp needs microphone access for speech-to-text dictation.</string>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Package artifacts
+        run: |
+          cd dist
+          # Zip the app bundle
+          ditto -c -k --keepParent YOLOWhisp.app YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip
+          # Also provide standalone binary
+          tar czf YOLOWhisp-${{ steps.version.outputs.VERSION }}-binary.tar.gz YOLOWhisp
+          # Checksums
+          shasum -a 256 *.zip *.tar.gz > checksums.txt
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Get commits since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          else
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
+          fi
+
+          cat > release_notes.md << EOF
+          ## YOLOWhisp v${{ steps.version.outputs.VERSION }}
+
+          Fully local speech-to-text for macOS, powered by whisper-cpp + Metal GPU.
+
+          ### Downloads
+
+          | File | Description |
+          |------|-------------|
+          | \`YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip\` | macOS app bundle (drag to /Applications) |
+          | \`YOLOWhisp-${{ steps.version.outputs.VERSION }}-binary.tar.gz\` | Standalone universal binary |
+
+          ### Prerequisites
+          \`\`\`bash
+          brew install whisper-cpp
+          # Download a model (small recommended):
+          curl -L -o ~/.local/share/whisper/ggml-small.bin \\
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+          \`\`\`
+
+          ### Changes
+          ${COMMITS}
+
+          ### Checksums
+          \`\`\`
+          $(cat dist/checksums.txt)
+          \`\`\`
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          files: |
+            dist/YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip
+            dist/YOLOWhisp-${{ steps.version.outputs.VERSION }}-binary.tar.gz
+            dist/checksums.txt
+          draft: false
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
