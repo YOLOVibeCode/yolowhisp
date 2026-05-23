@@ -21,3 +21,4 @@ DerivedData/
 
 # Models (large - download via setup.sh)
 Models/*.bin
+benchmark/test-clean-sample.tar.gz
