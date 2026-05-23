@@ -1,0 +1,8 @@
+#!/bin/bash
+echo "Running YOLOWhisp tests..."
+swift test 2>&1 | tail -5
+if [ $? -ne 0 ]; then
+    echo "Tests failed. Commit blocked."
+    exit 1
+fi
+echo "All tests passed."
