@@ -1,0 +1,491 @@
+{
+  "summary": {
+    "whisper_only": {
+      "wer": 5.76,
+      "avg_time_per_sample": 0.577,
+      "real_time_factor": 0.121
+    },
+    "whisper_punctuator": {
+      "wer": 45.52,
+      "avg_time_per_sample": 0.692,
+      "real_time_factor": 0.145
+    },
+    "whisper_ollama": {
+      "wer": 17.69,
+      "avg_time_per_sample": 0.179,
+      "real_time_factor": 0.219
+    }
+  },
+  "samples": [
+    {
+      "id": "61-70968-0000",
+      "reference": "HE BEGAN A CONFUSED COMPLAINT AGAINST THE WIZARD WHO HAD VANISHED BEHIND THE CURTAIN ON THE LEFT",
+      "whisper_raw": "he began a confused complaint against the wizard, who had vanished behind the curtain on the left.",
+      "whisper_time": 0.584,
+      "duration": 4.91,
+      "punctuator_out": "He began a confu sed complaint against the w izar d , who had van is hed behind the curta in on the left. ..",
+      "punctuator_time": 1.763,
+      "ollama_out": "He began with a confused complaint against the wizard, who had vanished behind the curtain on the left.",
+      "ollama_time": 0.377
+    },
+    {
+      "id": "61-70968-0001",
+      "reference": "GIVE NOT SO EARNEST A MIND TO THESE MUMMERIES CHILD",
+      "whisper_raw": "Give not so earnest a mind to these mummeries, child.",
+      "whisper_time": 0.583,
+      "duration": 3.61,
+      "punctuator_out": "Give not so earn est a mind to these mu, mmer, ies, , child. ..",
+      "punctuator_time": 0.123,
+      "ollama_out": "Give your mind no earnest concern to these mummeries, child.",
+      "ollama_time": 0.327
+    },
+    {
+      "id": "61-70968-0002",
+      "reference": "A GOLDEN FORTUNE AND A HAPPY LIFE",
+      "whisper_raw": "a golden fortune and a happy life?",
+      "whisper_time": 0.563,
+      "duration": 2.97,
+      "punctuator_out": "A golden for tune and a happy life. ?.",
+      "punctuator_time": 0.309,
+      "ollama_out": "A golden opportunity and a happy life?",
+      "ollama_time": 0.244
+    },
+    {
+      "id": "61-70968-0003",
+      "reference": "HE WAS LIKE UNTO MY FATHER IN A WAY AND YET WAS NOT MY FATHER",
+      "whisper_raw": "He was likened to my father, in a way, and yet was not my father.",
+      "whisper_time": 0.577,
+      "duration": 4.32,
+      "punctuator_out": "He was like ned to my father ,, in a way, , and yet was not my father. ..",
+      "punctuator_time": 0.065,
+      "ollama_out": "He was likened to my father\u2014indeed, he was not my father.",
+      "ollama_time": 0.32
+    },
+    {
+      "id": "61-70968-0004",
+      "reference": "ALSO THERE WAS A STRIPLING PAGE WHO TURNED INTO A MAID",
+      "whisper_raw": "Also, there was a stripling page who turned into a maid.",
+      "whisper_time": 0.582,
+      "duration": 3.88,
+      "punctuator_out": "Also, , there was a strip ling page who turned into a mai. D. ..",
+      "punctuator_time": 0.027,
+      "ollama_out": "Also, there was a stripling-page who turned into a maid.",
+      "ollama_time": 0.307
+    },
+    {
+      "id": "61-70968-0005",
+      "reference": "THIS WAS SO SWEET A LADY SIR AND IN SOME MANNER I DO THINK SHE DIED",
+      "whisper_raw": "\"This was so sweet a lady, sir, and in some manner I do think she died.\"",
+      "whisper_time": 0.568,
+      "duration": 5.07,
+      "punctuator_out": "\" This was so sweet a lady ,, sir , and in some manner I do think she die. D. .\".",
+      "punctuator_time": 0.075,
+      "ollama_out": "\"This was such a sweet lady, sir, and in some manner I do think she died.\"",
+      "ollama_time": 0.34
+    },
+    {
+      "id": "61-70968-0006",
+      "reference": "BUT THEN THE PICTURE WAS GONE AS QUICKLY AS IT CAME",
+      "whisper_raw": "but then the picture was gone as quickly as it came.",
+      "whisper_time": 0.576,
+      "duration": 2.94,
+      "punctuator_out": "But then the picture was gone as quickly as it came. ..",
+      "punctuator_time": 0.309,
+      "ollama_out": "But then the picture was gone as quickly as it came.",
+      "ollama_time": 0.276
+    },
+    {
+      "id": "61-70968-0007",
+      "reference": "SISTER NELL DO YOU HEAR THESE MARVELS",
+      "whisper_raw": "\"Sister Nell, do you hear these marvels?\"",
+      "whisper_time": 0.572,
+      "duration": 3.55,
+      "punctuator_out": "\" S ister Nell ,, do you hear these mar? Vel? S? ?\".",
+      "punctuator_time": 0.321,
+      "ollama_out": "\"Sister Nell, do you hear these marvels?\"",
+      "ollama_time": 0.287
+    },
+    {
+      "id": "61-70968-0008",
+      "reference": "TAKE YOUR PLACE AND LET US SEE WHAT THE CRYSTAL CAN SHOW TO YOU",
+      "whisper_raw": "Take your place and let us see what the crystal can show to you.",
+      "whisper_time": 0.571,
+      "duration": 3.54,
+      "punctuator_out": "Take your place and let us see what the crystal can show to you. ..",
+      "punctuator_time": 0.034,
+      "ollama_out": "Take your place and let us see what the crystal can show you.",
+      "ollama_time": 0.306
+    },
+    {
+      "id": "61-70970-0000",
+      "reference": "YOUNG FITZOOTH HAD BEEN COMMANDED TO HIS MOTHER'S CHAMBER SO SOON AS HE HAD COME OUT FROM HIS CONVERSE WITH THE SQUIRE",
+      "whisper_raw": "Young Fitzuth had been commanded to his mother's chamber so soon as he had come out from his converse with the squire.",
+      "whisper_time": 0.58,
+      "duration": 6.08,
+      "punctuator_out": "Young Fit zu th had been commande d to his mother ' s cha mber so soon as he had come out from his con verse with the s. Qui. Re. ..",
+      "punctuator_time": 0.467,
+      "ollama_out": "Young Fitzuth had been commanded to his mother's chamber so soon as he had come out from his conversation with the squire.",
+      "ollama_time": 0.401
+    },
+    {
+      "id": "61-70970-0001",
+      "reference": "THERE BEFELL AN ANXIOUS INTERVIEW MISTRESS FITZOOTH ARGUING FOR AND AGAINST THE SQUIRE'S PROJECT IN A BREATH",
+      "whisper_raw": "Thereby fell an anxious interview, Mistress Fitzsuth arguing for and against the Squires project in a breath.",
+      "whisper_time": 0.572,
+      "duration": 6.16,
+      "punctuator_out": "There by fell an an xio us interview , Mi stress Fit z su th argu ing for and against the S qui res project in a breath. ..",
+      "punctuator_time": 0.101
+    },
+    {
+      "id": "61-70970-0002",
+      "reference": "MOST OF ALL ROBIN THOUGHT OF HIS FATHER WHAT WOULD HE COUNSEL",
+      "whisper_raw": "Most of all, Robin thought of his father. What would he counsel?",
+      "whisper_time": 0.591,
+      "duration": 4.17,
+      "punctuator_out": "Most of all, , Robin thought of his father . What would he counsel? ??",
+      "punctuator_time": 0.024
+    },
+    {
+      "id": "61-70970-0003",
+      "reference": "IF FOR A WHIM YOU BEGGAR YOURSELF I CANNOT STAY YOU",
+      "whisper_raw": "If for a whim you beggar yourself, I cannot stay you.",
+      "whisper_time": 0.574,
+      "duration": 3.83,
+      "punctuator_out": "If, for a w, him, you beg gar yourself, , I cannot stay you. ..",
+      "punctuator_time": 0.04
+    },
+    {
+      "id": "61-70970-0004",
+      "reference": "BUT TAKE IT WHILST I LIVE AND WEAR MONTFICHET'S SHIELD IN THE DAYS WHEN MY EYES CAN BE REJOICED BY SO BRAVE A SIGHT FOR YOU WILL NE'ER DISGRACE OUR SCUTCHEON I WARRANT ME",
+      "whisper_raw": "\"But take it whilst I live, and wear Montphych\u00e9's shield in the days when my eyes can be rejoiced by so brave a sight, for you will never disgrace our stuch and I warrant me.\"",
+      "whisper_time": 0.576,
+      "duration": 10.52,
+      "punctuator_out": "\" But take it whilst I live , and wear Mont phy ch\u00e9 ' s  shield in the days when my eyes can be re jo ice d by so bra ve a sight , for you will never dis gra ce our stu, ch, and I warrant me. .\".",
+      "punctuator_time": 0.099
+    },
+    {
+      "id": "61-70970-0005",
+      "reference": "THE LAD HAD CHECKED HIM THEN",
+      "whisper_raw": "The lad had checked him then.",
+      "whisper_time": 0.571,
+      "duration": 2.02,
+      "punctuator_out": "The la d had check ed him then. ..",
+      "punctuator_time": 0.018
+    },
+    {
+      "id": "61-70970-0006",
+      "reference": "NEVER THAT SIR HE HAD SAID",
+      "whisper_raw": "\"Never that, sir,\" he had said.",
+      "whisper_time": 0.571,
+      "duration": 2.33,
+      "punctuator_out": "\" Ne ver that, , sir , \" he had said. ..",
+      "punctuator_time": 0.031
+    },
+    {
+      "id": "61-70970-0007",
+      "reference": "HE WAS IN DEEP CONVERSE WITH THE CLERK AND ENTERED THE HALL HOLDING HIM BY THE ARM",
+      "whisper_raw": "He was in deep converse with the clerk and entered the hall holding him by the arm.",
+      "whisper_time": 0.574,
+      "duration": 4.49,
+      "punctuator_out": "He was in deep con verse with the cle rk and enter ed the hall holding him by the arm. ..",
+      "punctuator_time": 0.03
+    },
+    {
+      "id": "61-70970-0008",
+      "reference": "NOW TO BED BOY",
+      "whisper_raw": "Now to bed, boy.",
+      "whisper_time": 0.578,
+      "duration": 2.15,
+      "punctuator_out": "Now to bed, , boy. ..",
+      "punctuator_time": 0.23
+    },
+    {
+      "id": "61-70970-0009",
+      "reference": "TIS LATE AND I GO MYSELF WITHIN A SHORT SPACE",
+      "whisper_raw": "'Tis late, and I go myself within a short space.",
+      "whisper_time": 0.583,
+      "duration": 3.4,
+      "punctuator_out": "' T is late , and I go myself within a short space. ..",
+      "punctuator_time": 0.138
+    },
+    {
+      "id": "61-70970-0010",
+      "reference": "DISMISS YOUR SQUIRE ROBIN AND BID ME GOOD E E N",
+      "whisper_raw": "Dismiss your squire Robin and bid me good eating.",
+      "whisper_time": 0.584,
+      "duration": 3.04,
+      "punctuator_out": "Dis miss your s qui re Robin and bid me good eating. ..",
+      "punctuator_time": 0.034
+    },
+    {
+      "id": "61-70970-0011",
+      "reference": "AS ANY IN ENGLAND I WOULD SAY SAID GAMEWELL PROUDLY THAT IS IN HIS DAY",
+      "whisper_raw": "\"As any in England, I would say,\" said Gamewell proudly, \"that is, in his day.\"",
+      "whisper_time": 0.581,
+      "duration": 6.08,
+      "punctuator_out": "\" As any in England , I would say , \" said Game well proud, ly, , \" that is , in his day .\".",
+      "punctuator_time": 0.022
+    },
+    {
+      "id": "61-70970-0012",
+      "reference": "YET HE WILL TEACH YOU A FEW TRICKS WHEN MORNING IS COME",
+      "whisper_raw": "Yet he will teach you a few tricks when warning is come.",
+      "whisper_time": 0.578,
+      "duration": 3.13,
+      "punctuator_out": "Yet he will teach you a few trick s when war ning is come. ..",
+      "punctuator_time": 0.036
+    },
+    {
+      "id": "61-70970-0013",
+      "reference": "THERE WAS NO CHANCE TO ALTER HIS SLEEPING ROOM TO ONE NEARER TO GAMEWELL'S CHAMBER",
+      "whisper_raw": "There was no chance to alter his sleeping room to one nearer to Gamewell's chamber.",
+      "whisper_time": 0.576,
+      "duration": 4.35,
+      "punctuator_out": "There was no chance to alter his sleeping room to one near er to Game well ' s cha. Mber. ..",
+      "punctuator_time": 0.036
+    },
+    {
+      "id": "61-70970-0014",
+      "reference": "PRESENTLY HE CROSSED THE FLOOR OF HIS ROOM WITH DECIDED STEP",
+      "whisper_raw": "Presently, he crossed the floor of his room with decided step.",
+      "whisper_time": 0.585,
+      "duration": 3.4,
+      "punctuator_out": "Present ly , he cross ed the floor of his room with decided step. ..",
+      "punctuator_time": 0.026
+    },
+    {
+      "id": "61-70970-0015",
+      "reference": "WILL CRIED HE SOFTLY AND STUTELEY WHO HAD CHOSEN HIS COUCH ACROSS THE DOOR OF HIS YOUNG MASTER'S CHAMBER SPRANG UP AT ONCE IN ANSWER",
+      "whisper_raw": "\"Will!\" cried he softly, and Stutley, who had chosen his couch across the door of his young master's chamber, sprang up at once an answer.",
+      "whisper_time": 0.572,
+      "duration": 8.41,
+      "punctuator_out": "\" Will !\", cri ed he soft, ly, , and Stu t ley , who had chose n his cou ch across the door of his young master ' s cha mber ,, sprang up at once. An answer. ..",
+      "punctuator_time": 0.116
+    },
+    {
+      "id": "61-70970-0016",
+      "reference": "WE WILL GO OUT TOGETHER TO THE BOWER THERE IS A WAY DOWN TO THE COURT FROM MY WINDOW",
+      "whisper_raw": "\"We will go out together to the bower. There is a way down to the court for my window.\"",
+      "whisper_time": 0.577,
+      "duration": 4.37,
+      "punctuator_out": "\" We will go out together to the bo wer . There is a way down to the court for my window .\".",
+      "punctuator_time": 0.089
+    },
+    {
+      "id": "61-70970-0017",
+      "reference": "REST AND BE STILL UNTIL I WARN YOU",
+      "whisper_raw": "Rest and be still until I warn you",
+      "whisper_time": 0.573,
+      "duration": 2.55,
+      "punctuator_out": "Rest and be still until I war n you.",
+      "punctuator_time": 0.025
+    },
+    {
+      "id": "61-70970-0018",
+      "reference": "THE HOURS PASSED WEARILY BY AND MOVEMENT COULD YET BE HEARD ABOUT THE HALL",
+      "whisper_raw": "The hours passed wearily by, and movement could yet be heard about the hall.",
+      "whisper_time": 0.579,
+      "duration": 4.6,
+      "punctuator_out": "The hours passed wear ily by , and movement could yet be heard about the hall. ..",
+      "punctuator_time": 0.047
+    },
+    {
+      "id": "61-70970-0019",
+      "reference": "AT LAST ALL WAS QUIET AND BLACK IN THE COURTYARD OF GAMEWELL",
+      "whisper_raw": "At last, all was quiet and black in the courtyard of Gamewell.",
+      "whisper_time": 0.58,
+      "duration": 3.78,
+      "punctuator_out": "At last , all was quiet and black in the court yard of Game. Well. ..",
+      "punctuator_time": 0.067
+    },
+    {
+      "id": "61-70970-0020",
+      "reference": "WILL WHISPERED ROBIN OPENING HIS DOOR AS HE SPOKE ARE YOU READY",
+      "whisper_raw": "\"Will,\" whispered Robin, opening his door as he spoke, \"are you ready?\"",
+      "whisper_time": 0.581,
+      "duration": 5.03,
+      "punctuator_out": "\" Will , \" w hi sper ed Robin, , opening his door as he spoke. , \" are you ready? ?\"?",
+      "punctuator_time": 0.067
+    },
+    {
+      "id": "61-70970-0021",
+      "reference": "THEY THEN RENEWED THEIR JOURNEY AND UNDER THE BETTER LIGHT MADE A SAFE CROSSING OF THE STABLE ROOFS",
+      "whisper_raw": "They then renewed their journey and, under the better light, made a safe crossing of the stable roofs.",
+      "whisper_time": 0.575,
+      "duration": 5.41,
+      "punctuator_out": "They then rene wed their journey and , under the better light , made a safe cross ing of the stable roof. S. ..",
+      "punctuator_time": 0.08
+    },
+    {
+      "id": "61-70970-0022",
+      "reference": "ROBIN ENTERED THE HUT DRAGGING THE UNWILLING ESQUIRE AFTER HIM",
+      "whisper_raw": "Robin entered the hut, dragging the unwilling Esquire after him.",
+      "whisper_time": 0.573,
+      "duration": 3.97,
+      "punctuator_out": "Robin enter ed the , hut, , drag ging the un will ing Es qui re after him ..",
+      "punctuator_time": 0.026
+    },
+    {
+      "id": "61-70970-0023",
+      "reference": "BE NOT SO FOOLISH FRIEND SAID FITZOOTH CROSSLY",
+      "whisper_raw": "\"Be not so foolish friend,\" said Fitz-Ooth Crossley.",
+      "whisper_time": 0.581,
+      "duration": 3.71,
+      "punctuator_out": "\" Be not so fool, ish friend , \" said Fit z - O oth Cross. Ley. ..",
+      "punctuator_time": 0.095
+    },
+    {
+      "id": "61-70970-0024",
+      "reference": "THEY MOVED THEREAFTER CAUTIOUSLY ABOUT THE HUT GROPING BEFORE AND ABOUT THEM TO FIND SOMETHING TO SHOW THAT WARRENTON HAD FULFILLED HIS MISSION",
+      "whisper_raw": "They moved thereafter cautiously about the hut, groping before and about them to find something to show that the warrant had fulfilled his mission.",
+      "whisper_time": 0.576,
+      "duration": 7.24,
+      "punctuator_out": "They moved there a fter ca uti ously about the  hut , gro ping before and about them to find something to show that the warrant had fulfill ed his mission. ..",
+      "punctuator_time": 0.053
+    },
+    {
+      "id": "61-70970-0025",
+      "reference": "THEY WERE UPON THE VERGE OF AN OPEN TRAP IN THE FAR CORNER OF THE HUT AND STUTELEY HAD TRIPPED OVER THE EDGE OF THE REVERSED FLAP MOUTH OF THIS PIT",
+      "whisper_raw": "They were upon the verge of an open trap in the far corner of the hut, and Stutley had tripped over the edge of the reversed flap-mouth of this pit.",
+      "whisper_time": 0.576,
+      "duration": 7.43,
+      "punctuator_out": "They were upon the verge of an open trap in the far corner of the  hut , and Stu t ley had tri pped over the edge of the rever sed f lap - mouth of this pit. ..",
+      "punctuator_time": 0.028
+    },
+    {
+      "id": "61-70970-0026",
+      "reference": "FITZOOTH'S HAND RESTED AT LAST UPON THE TOP RUNG OF A LADDER AND SLOWLY THE TRUTH CAME TO HIM",
+      "whisper_raw": "Fitzuth's hand rested at last upon the top rung of a ladder, and slowly the truth came to him.",
+      "whisper_time": 0.595,
+      "duration": 5.47,
+      "punctuator_out": "Fit zu th ' s hand reste d at last upon the top rung of a la dder , and slowly the truth came to him. ..",
+      "punctuator_time": 0.046
+    },
+    {
+      "id": "61-70970-0027",
+      "reference": "ROBIN CAREFULLY DESCENDED THE LADDER AND FOUND HIMSELF SOON UPON FIRM ROCKY GROUND",
+      "whisper_raw": "Robin carefully descended the ladder and found himself soon upon firm rocky ground.",
+      "whisper_time": 0.575,
+      "duration": 5.08,
+      "punctuator_out": "Robin carefully descend ed the la dder and found himself soon upon firm rock y ground. ..",
+      "punctuator_time": 0.033
+    },
+    {
+      "id": "61-70970-0028",
+      "reference": "STUTELEY WAS BY HIS SIDE IN A FLASH AND THEN THEY BOTH BEGAN FEELING ABOUT THEM TO ASCERTAIN THE SHAPE AND CHARACTER OF THIS VAULT",
+      "whisper_raw": "Stuntley was by his side in a flash, and then they both began feeling about them to ascertain the shape and character of this vault.",
+      "whisper_time": 0.581,
+      "duration": 6.55,
+      "punctuator_out": "S tunt ley was by his side in a flash , and then they both began feeling about them to as certa in the shape and character of this va. Ult. ..",
+      "punctuator_time": 0.038
+    },
+    {
+      "id": "61-70970-0029",
+      "reference": "FROM THE BLACKNESS BEHIND THE LIGHT THEY HEARD A VOICE WARRENTON'S",
+      "whisper_raw": "From the blackness behind the light they heard a voice. Warrantons.",
+      "whisper_time": 0.57,
+      "duration": 4.03,
+      "punctuator_out": "From the black ness behind the light, they heard a voice . War. Rant. Ons. ..",
+      "punctuator_time": 0.03
+    },
+    {
+      "id": "61-70970-0030",
+      "reference": "SAVE ME MASTERS BUT YOU STARTLED ME RARELY",
+      "whisper_raw": "Save me, masters, but you startled me rarely.",
+      "whisper_time": 0.569,
+      "duration": 3.24,
+      "punctuator_out": "Save me, , master, s, ,, but you start led me rare. Ly. ..",
+      "punctuator_time": 0.02
+    },
+    {
+      "id": "61-70970-0031",
+      "reference": "CRIED HE WAVING THE LANTHORN BEFORE HIM TO MAKE SURE THAT THESE WERE NO GHOSTS IN FRONT OF HIM",
+      "whisper_raw": "cried he waving the lantern before him to make sure that these were no ghosts in front of him.",
+      "whisper_time": 0.59,
+      "duration": 5.13,
+      "punctuator_out": "Cri ed he, wa ving the lan tern before him to make sure that these were no g host s in front of him. ..",
+      "punctuator_time": 0.073
+    },
+    {
+      "id": "61-70970-0032",
+      "reference": "ENQUIRED ROBIN WITH HIS SUSPICIONS STILL UPON HIM",
+      "whisper_raw": "Inquired Robin, with his suspicion still upon him.",
+      "whisper_time": 0.588,
+      "duration": 3.13,
+      "punctuator_out": "In qui red Robin , with his su spicio n still upon him. ..",
+      "punctuator_time": 0.032
+    },
+    {
+      "id": "61-70970-0033",
+      "reference": "TRULY SUCH A HORSE SHOULD BE WORTH MUCH IN NOTTINGHAM FAIR",
+      "whisper_raw": "Truly, such a horse would be worth much in nodding him fair.",
+      "whisper_time": 0.58,
+      "duration": 3.42,
+      "punctuator_out": "Tru, ly, , such a horse would be worth much in no dding him fair. ..",
+      "punctuator_time": 0.034
+    },
+    {
+      "id": "61-70970-0034",
+      "reference": "NAY NAY LORDING ANSWERED WARRENTON WITH A HALF LAUGH",
+      "whisper_raw": "\"Nay, nay, Lording,\" answered Warrenton with a half laugh.",
+      "whisper_time": 0.571,
+      "duration": 4.49,
+      "punctuator_out": "\" Na y ,, nay, , Lord ing , \" answered Warren ton with a half laugh. ..",
+      "punctuator_time": 0.024
+    },
+    {
+      "id": "61-70970-0035",
+      "reference": "WARRENTON SPOKE THUS WITH SIGNIFICANCE TO SHOW ROBIN THAT HE WAS NOT TO THINK GEOFFREY'S CLAIMS TO THE ESTATE WOULD BE PASSED BY",
+      "whisper_raw": "Warrenton spoke thus with significance, to show Robin that he was not to think Geoffrey's claims to the estate would be passed by.",
+      "whisper_time": 0.582,
+      "duration": 7.41,
+      "punctuator_out": "Warren ton spoke thu s with significa nce , to show Robin that he was not to think Ge offre y ' s claims to the estate would be passed by. ..",
+      "punctuator_time": 0.035
+    },
+    {
+      "id": "61-70970-0036",
+      "reference": "ROBIN FITZOOTH SAW THAT HIS DOUBTS OF WARRENTON HAD BEEN UNFAIR AND HE BECAME ASHAMED OF HIMSELF FOR HARBORING THEM",
+      "whisper_raw": "Robin Fitzhuth saw that his doubts of Warrenton had been unfair, and he became ashamed of himself for harboring them.",
+      "whisper_time": 0.57,
+      "duration": 6.79,
+      "punctuator_out": "Robin Fit z hu th saw that his doubt s of Warren ton had been un fair , and he became a sha med of himself for har bor ing them. ..",
+      "punctuator_time": 0.025
+    },
+    {
+      "id": "61-70970-0037",
+      "reference": "HIS TONES RANG PLEASANTLY ON WARRENTON'S EARS AND FORTHWITH A GOOD FELLOWSHIP WAS HERALDED BETWEEN THEM",
+      "whisper_raw": "His tones rang pleasantly on Warrington's ears, and forthwith a good fellowship was heralded between them.",
+      "whisper_time": 0.584,
+      "duration": 5.98,
+      "punctuator_out": "His to nes rang pleasant ly on War r ington ' s ear s , and for th with a good fellow ship was her alde d between them ..",
+      "punctuator_time": 0.146
+    },
+    {
+      "id": "61-70970-0038",
+      "reference": "THE OLD SERVANT TOLD HIM QUIETLY AS THEY CREPT BACK TO GAMEWELL THAT THIS PASSAGE WAY LED FROM THE HUT IN THE PLEASANCE TO SHERWOOD AND THAT GEOFFREY FOR THE TIME WAS HIDING WITH THE OUTLAWS IN THE FOREST",
+      "whisper_raw": "The old servant told him quietly as they crept back to Gamewell that this passageway led from the Hut and the Pleasants to Sherwood and that Jeffrey for the time was hiding with the Outlaws in the forest.",
+      "whisper_time": 0.571,
+      "duration": 10.4,
+      "punctuator_out": "The old servant told him quiet ly as they cre pt back to Game well that this passage way led from the Hut and the Ple as ants to Sher wood and that Jeffrey, for the time, was hi ding with the Out law s in the for. Est. .",
+      "punctuator_time": 0.087
+    },
+    {
+      "id": "61-70970-0039",
+      "reference": "HE IMPLORES US TO BE DISCREET AS THE GRAVE IN THIS MATTER FOR IN SOOTH HIS LIFE IS IN THE HOLLOW OF OUR HANDS",
+      "whisper_raw": "He implores us to be discreet as the grave in this matter, for ensued his life is in the hollow of our hands.",
+      "whisper_time": 0.575,
+      "duration": 6.67,
+      "punctuator_out": "He imp lor es us to be disc, re, et, as the grave in this matter , for en, su, ed, his life is in the ho llow of our hands. ..",
+      "punctuator_time": 0.031
+    },
+    {
+      "id": "61-70970-0040",
+      "reference": "THEY REGAINED THEIR APARTMENT APPARENTLY WITHOUT DISTURBING THE HOUSEHOLD OF GAMEWELL",
+      "whisper_raw": "They regain their apartment apparently without disturbing the household of Gainwell.",
+      "whisper_time": 0.57,
+      "duration": 4.17,
+      "punctuator_out": "They reg ain their apartment, apparently without disturb ing the household of Ga. In. Well. ..",
+      "punctuator_time": 0.023
+    }
+  ]
+}
