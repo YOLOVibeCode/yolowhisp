@@ -9,6 +9,13 @@ public final class DictationController: ObservableObject {
     private let postProcessor: (any PostProcessing)?
     private let pill: any PillDisplaying
 
+    /// Optional second transcriber for "dual opinion" mode.
+    /// When set, both transcribers run in parallel and results are merged by the polisher.
+    public var secondTranscriber: (any Transcribing)?
+
+    /// Optional dual opinion polisher — merges two transcription candidates via LLM.
+    public var dualOpinionPolisher: DualOpinionPolisher?
+
     @Published public private(set) var isActive: Bool = false
     public var outputMode: OutputMode = .simulatedKeystrokes
     public var postProcessEnabled: Bool = false
@@ -33,6 +40,7 @@ public final class DictationController: ObservableObject {
     public func startDictation() {
         guard !isActive else { return }
         isActive = true
+        SoundFeedback.shared.playStart()
         pill.setState(.recording)
         audioCapture.startCapture()
     }
@@ -41,15 +49,36 @@ public final class DictationController: ObservableObject {
         guard isActive else { return }
         let targetApp = frontmostAppProvider()
         let audioData = audioCapture.stopCapture()
+        SoundFeedback.shared.playStop()
         pill.setState(.processing)
 
         do {
-            let result = try await transcriber.transcribe(audioData: audioData)
-            var finalText = result.text
-            var processedText: String? = nil
+            // Run transcription — dual model if second transcriber is set
+            var candidates: [TranscriptionResult] = []
 
-            if postProcessEnabled, let processor = postProcessor {
-                let processed = try await processor.process(text: result.text)
+            if let second = secondTranscriber {
+                // Run both in parallel
+                async let r1 = transcriber.transcribe(audioData: audioData)
+                async let r2 = second.transcribe(audioData: audioData)
+                let (result1, result2) = try await (r1, r2)
+                candidates = [result1, result2]
+            } else {
+                let result = try await transcriber.transcribe(audioData: audioData)
+                candidates = [result]
+            }
+
+            let primaryResult = candidates[0]
+            var finalText = primaryResult.text
+            var processedText: String? = nil
+            let modelsUsed = candidates.map(\.modelUsed).joined(separator: "+")
+
+            // Dual opinion merge or single polish
+            if let polisher = dualOpinionPolisher, candidates.count > 1 {
+                let merged = try await polisher.merge(candidates: candidates.map(\.text))
+                processedText = merged
+                finalText = merged
+            } else if postProcessEnabled, let processor = postProcessor {
+                let processed = try await processor.process(text: primaryResult.text)
                 processedText = processed
                 finalText = processed
             }
@@ -57,10 +86,10 @@ public final class DictationController: ObservableObject {
             try await textOutputManager.output(text: finalText, mode: outputMode)
 
             let entry = HistoryEntry(
-                rawText: result.text,
+                rawText: candidates.map(\.text).joined(separator: " | "),
                 processedText: processedText,
-                duration: result.duration,
-                modelUsed: result.modelUsed,
+                duration: primaryResult.duration,
+                modelUsed: modelsUsed,
                 targetApp: targetApp
             )
             try historyStore.save(entry: entry)

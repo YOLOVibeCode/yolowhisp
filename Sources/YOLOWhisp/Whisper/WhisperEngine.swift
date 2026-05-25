@@ -12,6 +12,11 @@ public final class WhisperEngine: Transcribing {
     private let modelManager: ModelManaging
     private let processRunner: ProcessRunning
 
+    /// Initial prompt to condition Whisper's decoder for better punctuation.
+    /// A well-punctuated example paragraph guides the model to produce
+    /// proper periods, commas, question marks, exclamation marks, etc.
+    public var initialPrompt: String? = "Hello, how are you? I'm doing great! That's wonderful. Let's meet at 3:30 PM. Don't forget — it's urgent!"
+
     public init(
         whisperPath: String = "/opt/homebrew/bin/whisper-cli",
         modelManager: ModelManaging,
@@ -41,9 +46,13 @@ public final class WhisperEngine: Transcribing {
         }
 
         let start = Date()
+        var args = ["-m", model.path, "-f", wavPath, "-l", "en", "-np"]
+        if let prompt = initialPrompt, !prompt.isEmpty {
+            args += ["--prompt", prompt]
+        }
         let result = try processRunner.run(
             executablePath: whisperPath,
-            arguments: ["-m", model.path, "-f", wavPath, "-l", "en", "-np"]
+            arguments: args
         )
 
         guard result.exitCode == 0 else {

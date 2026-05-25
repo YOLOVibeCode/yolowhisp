@@ -3,7 +3,7 @@ import Cocoa
 
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
-    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 49
+    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 179
     @AppStorage("hotkeyModifiers") private var hotkeyModifiers: Int = 0
     @State private var selectedShortcut: String = "globe"
     @State private var micPermission: Bool = false
