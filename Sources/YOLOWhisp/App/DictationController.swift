@@ -20,6 +20,10 @@ public final class DictationController: ObservableObject {
     /// Optional dual opinion polisher — merges two transcription candidates via LLM.
     public var dualOpinionPolisher: DualOpinionPolisher?
 
+    /// Optional offline merge strategy — picks the best of multiple candidates
+    /// without an LLM. Used for dual-model mode when AI merge isn't selected.
+    public var consensusStrategy: (any ConsensusStrategy)?
+
     @Published public private(set) var isActive: Bool = false
     public var outputMode: OutputMode = .simulatedKeystrokes
     public var postProcessEnabled: Bool = false
@@ -76,11 +80,14 @@ public final class DictationController: ObservableObject {
             var processedText: String? = nil
             let modelsUsed = candidates.map(\.modelUsed).joined(separator: "+")
 
-            // Dual opinion merge or single polish
+            // Dual opinion merge (AI), offline consensus vote, or single polish
             if let polisher = dualOpinionPolisher, candidates.count > 1 {
                 let merged = try await polisher.merge(candidates: candidates.map(\.text))
                 processedText = merged
                 finalText = merged
+            } else if let strategy = consensusStrategy, candidates.count > 1 {
+                // Offline: pick the best candidate, no LLM involved.
+                finalText = strategy.selectBest(from: candidates).text
             } else if postProcessEnabled, let processor = postProcessor {
                 let processed = try await processor.process(text: primaryResult.text)
                 processedText = processed

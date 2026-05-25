@@ -71,6 +71,20 @@ final class MockPostProcessor: PostProcessing {
     }
 }
 
+final class MockConsensusStrategy: ConsensusStrategy {
+    var selectCalled = false
+    var receivedCount = 0
+    let stubbed: TranscriptionResult
+
+    init(stubbed: TranscriptionResult) { self.stubbed = stubbed }
+
+    func selectBest(from results: [TranscriptionResult]) -> TranscriptionResult {
+        selectCalled = true
+        receivedCount = results.count
+        return stubbed
+    }
+}
+
 final class MockPillDisplay: PillDisplaying {
     var stateHistory: [PillState] = []
     var currentPosition: CGPoint = .zero
@@ -217,5 +231,31 @@ final class DictationControllerTests: XCTestCase {
 
         XCTAssertTrue(late.processCalled)
         XCTAssertEqual(textOutput.receivedText, "Injected.")
+    }
+
+    // Offline dual-model mode: two candidates, a consensus strategy, no
+    // polisher → the strategy picks the winner and it gets typed.
+    func testConsensusStrategyPicksWinnerForDualModel() async {
+        let outputManager = TextOutputManager(outputs: [.simulatedKeystrokes: textOutput])
+        let second = MockTranscriber()
+        second.stubbedResult = TranscriptionResult(text: "second version", duration: 1.0, modelUsed: "small")
+        let c = DictationController(
+            audioCapture: audioCapture,
+            transcriber: transcriber,
+            textOutputManager: outputManager,
+            historyStore: historyStore,
+            pill: pill
+        )
+        c.secondTranscriber = second
+        let pick = TranscriptionResult(text: "the chosen one", duration: 1.0, modelUsed: "small")
+        let strategy = MockConsensusStrategy(stubbed: pick)
+        c.consensusStrategy = strategy
+
+        c.startDictation()
+        await c.stopDictation()
+
+        XCTAssertTrue(strategy.selectCalled)
+        XCTAssertEqual(strategy.receivedCount, 2)
+        XCTAssertEqual(textOutput.receivedText, "the chosen one")
     }
 }

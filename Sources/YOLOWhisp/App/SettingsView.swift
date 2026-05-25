@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("whisperModel") private var whisperModel: String = "base"
     @AppStorage("aiPolishEnabled") private var aiPolishEnabled: Bool = false
     @AppStorage("dualOpinionEnabled") private var dualOpinionEnabled: Bool = false
+    @AppStorage("dualMergeMethod") private var dualMergeMethod: String = "ai"
     @AppStorage("secondWhisperModel") private var secondWhisperModel: String = "small"
     @AppStorage("aiProvider") private var aiProvider: String = ProviderType.ollama.rawValue
     @AppStorage("aiModelName") private var aiModelName: String = ""
@@ -128,7 +129,13 @@ struct SettingsView: View {
                         Text("Medium").tag("medium")
                         Text("Large").tag("large")
                     }
-                    Text("Both models run in parallel, then an AI merges the results for better punctuation and accuracy.")
+                    Picker("Merge", selection: $dualMergeMethod) {
+                        Text("AI merge").tag("ai")
+                        Text("Offline vote (no AI)").tag("vote")
+                    }
+                    Text(dualMergeMethod == "vote"
+                         ? "Both models run in parallel; the better candidate is picked locally — no AI, fully offline."
+                         : "Both models run in parallel, then an AI merges the results for better punctuation and accuracy.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -137,7 +144,7 @@ struct SettingsView: View {
             Section("AI Polish") {
                 Toggle("Enable AI Polish", isOn: $aiPolishEnabled)
 
-                if aiPolishEnabled || dualOpinionEnabled {
+                if aiPolishEnabled || (dualOpinionEnabled && dualMergeMethod == "ai") {
                     Picker("Provider", selection: $aiProvider) {
                         Text("Ollama").tag(ProviderType.ollama.rawValue)
                         Text("OpenAI").tag(ProviderType.openai.rawValue)

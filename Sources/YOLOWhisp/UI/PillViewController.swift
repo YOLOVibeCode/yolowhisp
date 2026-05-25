@@ -26,6 +26,7 @@ public final class PillViewController: PillDisplaying {
     public var audioLevel: Float = 0.0
 
     public private(set) var panel: NSPanel?
+    private var hostingView: NSHostingView<PillView>?
     private let userDefaults: UserDefaults
 
     public var pillColor: NSColor {
@@ -72,6 +73,7 @@ public final class PillViewController: PillDisplaying {
 
         let hostingView = NSHostingView(rootView: PillView(state: currentState, audioLevel: audioLevel))
         panel.contentView = hostingView
+        self.hostingView = hostingView
 
         let x = userDefaults.double(forKey: "yolowhisp.pill.x")
         let y = userDefaults.double(forKey: "yolowhisp.pill.y")
@@ -85,8 +87,9 @@ public final class PillViewController: PillDisplaying {
     }
 
     private func updatePillView() {
-        guard let panel = panel else { return }
-        let hostingView = NSHostingView(rootView: PillView(state: currentState, audioLevel: audioLevel))
-        panel.contentView = hostingView
+        // Update the existing SwiftUI view in place rather than swapping in a
+        // new NSHostingView — recreating it on every state change caused a
+        // flicker and reset in-flight animations.
+        hostingView?.rootView = PillView(state: currentState, audioLevel: audioLevel)
     }
 }

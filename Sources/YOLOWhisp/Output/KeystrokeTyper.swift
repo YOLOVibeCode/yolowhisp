@@ -60,11 +60,55 @@ public final class KeystrokeTyper: TextOutputting {
         return map
     }()
 
+    /// Build a character→key map for the *current* keyboard layout so typing
+    /// works on AZERTY / QWERTZ / Dvorak / etc., not just US QWERTY. Only
+    /// characters reachable with no modifier or Shift are included; anything
+    /// else (e.g. AltGr symbols) is omitted and falls back to the static US
+    /// map, then clipboard.
+    public static func layoutKeyMap() -> [Character: KeyMapping] {
+        let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
+        guard let layoutDataRef = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else {
+            return [:]
+        }
+        let layoutData = unsafeBitCast(layoutDataRef, to: CFData.self) as Data
+        var map: [Character: KeyMapping] = [:]
+
+        layoutData.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
+            guard let layout = ptr.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return }
+            let kbdType = UInt32(LMGetKbdType())
+            for keyCode in UInt16(0)..<128 {
+                for shift in [false, true] {
+                    let modifierState: UInt32 = shift ? 2 : 0  // (shiftKey >> 8) & 0xFF
+                    var deadKeyState: UInt32 = 0
+                    var chars = [UniChar](repeating: 0, count: 4)
+                    var length = 0
+                    let status = UCKeyTranslate(
+                        layout, keyCode, UInt16(kUCKeyActionDown), modifierState, kbdType,
+                        UInt32(kUCKeyTranslateNoDeadKeysMask), &deadKeyState,
+                        chars.count, &length, &chars
+                    )
+                    guard status == noErr, length == 1,
+                          let scalar = UnicodeScalar(UInt32(chars[0])),
+                          scalar.value >= 0x20, scalar.value != 0x7F else { continue }
+                    let ch = Character(scalar)
+                    // First write wins; shift=false is tried first so the
+                    // unshifted key is preferred for a given character.
+                    if map[ch] == nil {
+                        map[ch] = KeyMapping(keyCode: CGKeyCode(keyCode), shift: shift)
+                    }
+                }
+            }
+        }
+        return map
+    }
+
     public func output(text: String) async throws {
         let source = CGEventSource(stateID: .hidSystemState)
+        // Resolve against the active layout first, then the static US map.
+        let layoutMap = Self.layoutKeyMap()
 
         for ch in text {
-            if let mapping = Self.keyMap[ch] {
+            if let mapping = layoutMap[ch] ?? Self.keyMap[ch] {
                 guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: mapping.keyCode, keyDown: true),
                       let keyUp = CGEvent(keyboardEventSource: source, virtualKey: mapping.keyCode, keyDown: false) else {
                     continue

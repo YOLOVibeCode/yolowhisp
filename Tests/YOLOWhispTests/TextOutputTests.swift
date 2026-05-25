@@ -70,6 +70,20 @@ final class TextOutputTests: XCTestCase {
         }
     }
 
+    func testKeystrokeTyperLayoutMapBuilds() {
+        // Exercises the UCKeyTranslate path. On any Latin layout the alphabet
+        // is reachable; if the active input source exposes no layout data
+        // (rare on CI) the map is empty and we just verify it didn't crash.
+        let map = KeystrokeTyper.layoutKeyMap()
+        if !map.isEmpty {
+            XCTAssertNotNil(map["a"], "expected 'a' on a Latin keyboard layout")
+            XCTAssertNotNil(map["A"], "expected shifted 'A'")
+            if let upperA = map["A"] {
+                XCTAssertTrue(upperA.shift, "'A' should require shift")
+            }
+        }
+    }
+
     // MARK: AccessibilityInserter
 
     func testAccessibilityInserterConformsToProtocol() {

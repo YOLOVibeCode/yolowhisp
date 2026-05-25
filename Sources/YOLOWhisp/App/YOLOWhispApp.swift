@@ -47,6 +47,7 @@ struct YOLOWhispApp: App {
     @AppStorage("hotkeyTriggerMode") private var hotkeyTriggerMode: String = TriggerMode.hold.rawValue
     @AppStorage("hotkeys") private var hotkeysJSON: String = StoredHotkey.encode([StoredHotkey()])
     @AppStorage("dualOpinionEnabled") private var dualOpinionEnabled: Bool = false
+    @AppStorage("dualMergeMethod") private var dualMergeMethod: String = "ai"
     @AppStorage("secondWhisperModel") private var secondWhisperModel: String = "small"
     @AppStorage("aiProvider") private var aiProvider: String = ProviderType.ollama.rawValue
     @AppStorage("aiModelName") private var aiModelName: String = ""
@@ -144,6 +145,7 @@ struct YOLOWhispApp: App {
         .onChange(of: hotkeysJSON) { _, _ in setupHotkey() }
         .onChange(of: whisperModelName) { _, _ in loadWhisperModel() }
         .onChange(of: dualOpinionEnabled) { _, _ in setupDualOpinion() }
+        .onChange(of: dualMergeMethod) { _, _ in setupDualOpinion() }
         .onChange(of: secondWhisperModel) { _, _ in setupDualOpinion() }
         .onChange(of: aiProvider) { _, _ in setupDualOpinion(); setupPostProcessor() }
         .onChange(of: aiModelName) { _, _ in setupDualOpinion(); setupPostProcessor() }
@@ -194,6 +196,7 @@ struct YOLOWhispApp: App {
         guard dualOpinionEnabled else {
             controller.secondTranscriber = nil
             controller.dualOpinionPolisher = nil
+            controller.consensusStrategy = nil
             return
         }
 
@@ -205,8 +208,16 @@ struct YOLOWhispApp: App {
             controller.secondTranscriber = WhisperEngine(modelManager: secondModelManager)
         }
 
-        // Set up the polisher with the configured AI provider
-        controller.dualOpinionPolisher = DualOpinionPolisher(config: aiProviderConfig())
+        // Choose how the two candidates get merged.
+        if dualMergeMethod == "vote" {
+            // Offline majority vote — no LLM, fully local.
+            controller.dualOpinionPolisher = nil
+            controller.consensusStrategy = MajorityVoteConsensus()
+        } else {
+            // AI merge via the configured provider.
+            controller.consensusStrategy = nil
+            controller.dualOpinionPolisher = DualOpinionPolisher(config: aiProviderConfig())
+        }
     }
 
     /// Inject (or clear) the single-pass AI Polish provider on the controller.
