@@ -6,8 +6,12 @@ public final class DictationController: ObservableObject {
     private let transcriber: any Transcribing
     private let textOutputManager: TextOutputManager
     private let historyStore: any HistoryStoring
-    private let postProcessor: (any PostProcessing)?
     private let pill: any PillDisplaying
+
+    /// Optional single-pass LLM polisher applied when AI Polish is enabled
+    /// (and dual-opinion is not active). Settable so the app can swap it as
+    /// provider settings change.
+    public var postProcessor: (any PostProcessing)?
 
     /// Optional second transcriber for "dual opinion" mode.
     /// When set, both transcribers run in parallel and results are merged by the polisher.

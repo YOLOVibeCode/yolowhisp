@@ -194,4 +194,28 @@ final class DictationControllerTests: XCTestCase {
         await controller.stopDictation()
         XCTAssertEqual(historyStore.savedEntry?.targetApp, "TestApp")
     }
+
+    // Regression: the app builds the controller without a postProcessor and
+    // injects one later via setupPostProcessor(). Verify a late-set processor
+    // actually runs — previously AI Polish flipped a flag with no provider.
+    func testPostProcessorInjectedAfterInitRuns() async {
+        let outputManager = TextOutputManager(outputs: [.simulatedKeystrokes: textOutput])
+        let bare = DictationController(
+            audioCapture: audioCapture,
+            transcriber: transcriber,
+            textOutputManager: outputManager,
+            historyStore: historyStore,
+            pill: pill
+        )
+        let late = MockPostProcessor()
+        late.stubbedResult = "Injected."
+        bare.postProcessor = late
+        bare.postProcessEnabled = true
+
+        bare.startDictation()
+        await bare.stopDictation()
+
+        XCTAssertTrue(late.processCalled)
+        XCTAssertEqual(textOutput.receivedText, "Injected.")
+    }
 }

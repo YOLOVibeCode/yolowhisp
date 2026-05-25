@@ -80,6 +80,7 @@ struct YOLOWhispApp: App {
                 availableMicrophones = Self.listInputDevices()
                 applyMicrophoneSelection()
                 setupDualOpinion()
+                setupPostProcessor()
                 setupHotkey()
             }
             Divider()
@@ -138,13 +139,15 @@ struct YOLOWhispApp: App {
         }
         .onChange(of: aiPolishEnabled) { _, newValue in
             controller.postProcessEnabled = newValue
+            setupPostProcessor()
         }
         .onChange(of: hotkeysJSON) { _, _ in setupHotkey() }
         .onChange(of: whisperModelName) { _, _ in loadWhisperModel() }
         .onChange(of: dualOpinionEnabled) { _, _ in setupDualOpinion() }
         .onChange(of: secondWhisperModel) { _, _ in setupDualOpinion() }
-        .onChange(of: aiProvider) { _, _ in setupDualOpinion() }
-        .onChange(of: aiModelName) { _, _ in setupDualOpinion() }
+        .onChange(of: aiProvider) { _, _ in setupDualOpinion(); setupPostProcessor() }
+        .onChange(of: aiModelName) { _, _ in setupDualOpinion(); setupPostProcessor() }
+        .onChange(of: aiApiKey) { _, _ in setupDualOpinion(); setupPostProcessor() }
 
         Window("Onboarding", id: "onboarding") {
             OnboardingView(permissionChecker: PermissionManager())
@@ -203,6 +206,23 @@ struct YOLOWhispApp: App {
         }
 
         // Set up the polisher with the configured AI provider
+        controller.dualOpinionPolisher = DualOpinionPolisher(config: aiProviderConfig())
+    }
+
+    /// Inject (or clear) the single-pass AI Polish provider on the controller.
+    /// Without this, toggling "AI Polish" flips a flag the controller can't act
+    /// on because it has no provider to call.
+    private func setupPostProcessor() {
+        guard aiPolishEnabled else {
+            controller.postProcessor = nil
+            return
+        }
+        let config = aiProviderConfig(customPrompt: DualOpinionPolisher.singlePolishPrompt)
+        controller.postProcessor = ProviderFactory.make(config: config)
+    }
+
+    /// Build a provider config from the current AI settings.
+    private func aiProviderConfig(customPrompt: String? = nil) -> PostProcessorConfig {
         let providerType = ProviderType(rawValue: aiProvider) ?? .ollama
         let endpoint: String
         switch providerType {
@@ -211,14 +231,13 @@ struct YOLOWhispApp: App {
         case .anthropic: endpoint = "https://api.anthropic.com/v1/messages"
         case .custom: endpoint = ""
         }
-
-        let polishConfig = PostProcessorConfig(
+        return PostProcessorConfig(
             providerType: providerType,
             modelName: aiModelName.isEmpty ? "llama3.2" : aiModelName,
             endpoint: endpoint,
-            apiKey: aiApiKey.isEmpty ? nil : aiApiKey
+            apiKey: aiApiKey.isEmpty ? nil : aiApiKey,
+            customPrompt: customPrompt
         )
-        controller.dualOpinionPolisher = DualOpinionPolisher(config: polishConfig)
     }
 
     private func applyMicrophoneSelection() {

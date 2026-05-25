@@ -3,8 +3,9 @@ import Cocoa
 
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
-    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 179
-    @AppStorage("hotkeyModifiers") private var hotkeyModifiers: Int = 0
+    // Live hotkey registration reads this key (the StoredHotkey array), so the
+    // preset must be written here — not the legacy hotkeyKeyCode/Modifiers keys.
+    @AppStorage("hotkeys") private var hotkeysJSON: String = StoredHotkey.encode([StoredHotkey()])
     @State private var selectedShortcut: String = "globe"
     @State private var micPermission: Bool = false
     @State private var accessibilityPermission: Bool = false
@@ -108,18 +109,24 @@ struct OnboardingView: View {
     }
 
     private func applyPreset(_ tag: String) {
+        let hotkey: StoredHotkey?
         switch tag {
         case "globe":
-            hotkeyKeyCode = 179
-            hotkeyModifiers = 0
+            hotkey = StoredHotkey(keyCode: 179, modifiers: 0, triggerMode: "hold")
         case "ctrlshift":
-            hotkeyKeyCode = 56
-            hotkeyModifiers = Int(NSEvent.ModifierFlags.control.rawValue | NSEvent.ModifierFlags.shift.rawValue)
+            hotkey = StoredHotkey(
+                keyCode: 56,
+                modifiers: Int(NSEvent.ModifierFlags.control.rawValue | NSEvent.ModifierFlags.shift.rawValue),
+                triggerMode: "hold"
+            )
         case "f5":
-            hotkeyKeyCode = 96
-            hotkeyModifiers = 0
+            hotkey = StoredHotkey(keyCode: 96, modifiers: 0, triggerMode: "toggle")
         default:
-            break
+            // "custom" — leave the existing hotkey; user sets it in Settings.
+            hotkey = nil
+        }
+        if let hotkey {
+            hotkeysJSON = StoredHotkey.encode([hotkey])
         }
     }
 }

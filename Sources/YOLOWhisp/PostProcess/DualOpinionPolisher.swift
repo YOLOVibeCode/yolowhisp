@@ -37,18 +37,7 @@ public final class DualOpinionPolisher {
             customPrompt: candidates.count > 1 ? Self.mergePrompt : Self.singlePolishPrompt
         )
 
-        let provider: any PostProcessing
-        switch config.providerType {
-        case .ollama:
-            provider = OllamaProvider(config: mergeConfig, session: session)
-        case .openai:
-            provider = OpenAIProvider(config: mergeConfig, session: session)
-        case .anthropic:
-            provider = AnthropicProvider(config: mergeConfig, session: session)
-        case .custom:
-            provider = CustomProvider(config: mergeConfig, session: session)
-        }
-
+        let provider = ProviderFactory.make(config: mergeConfig, session: session)
         return try await provider.process(text: userMessage)
     }
 
