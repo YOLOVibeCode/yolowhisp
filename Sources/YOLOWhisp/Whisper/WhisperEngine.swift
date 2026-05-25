@@ -5,6 +5,7 @@ public enum WhisperError: Error, Equatable {
     case emptyAudio
     case processError(String)
     case whisperNotFound
+    case timedOut
 }
 
 public final class WhisperEngine: Transcribing {
