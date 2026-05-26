@@ -65,11 +65,28 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc sign so the bundle has a stable identity for the keystroke/CGEvent and
-# Accessibility APIs. macOS may re-prompt for Accessibility after a rebuild;
-# keeping the bundle at this fixed path minimises that.
-echo "==> Ad-hoc code signing..."
-codesign --force --deep --sign - "$APP_DIR"
+# Signing.
+#   CODESIGN_IDENTITY unset or "-"  -> ad-hoc (default; fast local dev loop).
+#   CODESIGN_IDENTITY="Developer ID Application: ..." -> real signing with the
+#       hardened runtime + entitlements, which is what notarization requires.
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+ENTITLEMENTS="$ROOT/scripts/YOLOWhisp.entitlements"
+
+if [[ "$CODESIGN_IDENTITY" == "-" ]]; then
+  # Ad-hoc keeps a stable local identity for the keystroke/CGEvent and
+  # Accessibility APIs. macOS may re-prompt for Accessibility after a rebuild;
+  # the fixed bundle path minimises that.
+  echo "==> Ad-hoc code signing..."
+  codesign --force --deep --sign - "$APP_DIR"
+else
+  echo "==> Signing with: $CODESIGN_IDENTITY (hardened runtime)..."
+  # No --deep: the bundle has a single Mach-O and no nested code, and Apple
+  # advises against --deep for anything bound for notarization.
+  codesign --force --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" \
+    --sign "$CODESIGN_IDENTITY" "$APP_DIR"
+  codesign --verify --strict --verbose=2 "$APP_DIR"
+fi
 
 echo "==> Done: $APP_DIR"
 echo "    Run it with:  open \"$APP_DIR\"   (or: make run)"

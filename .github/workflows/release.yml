@@ -21,6 +21,28 @@ jobs:
       - name: Run tests
         run: swift test
 
+      # Signing + notarization run only when the repo has the secrets set.
+      # Without them the release still builds, just unsigned.
+      - name: Import Developer ID certificate
+        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PWD="$(openssl rand -base64 24)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed s/\"//g)
+          rm -f "$CERT_PATH"
+
       - name: Build release binary (arm64)
         run: |
           swift build -c release --arch arm64
@@ -74,6 +96,35 @@ jobs:
           </dict>
           </plist>
           PLIST
+
+      - name: Sign (Developer ID + hardened runtime)
+        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        env:
+          SIGN_IDENTITY: "${{ secrets.MACOS_SIGN_IDENTITY || 'Developer ID Application: NoctuSoft, Inc. (N42FM5L5KD)' }}"
+        run: |
+          set -euo pipefail
+          # Standalone universal binary (signed, no entitlements — no Info.plist).
+          codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" dist/YOLOWhisp
+          # The app bundle, with the microphone entitlement.
+          codesign --force --options runtime --timestamp \
+            --entitlements scripts/YOLOWhisp.entitlements \
+            --sign "$SIGN_IDENTITY" dist/YOLOWhisp.app
+          codesign --verify --strict --verbose=2 dist/YOLOWhisp.app
+
+      - name: Notarize and staple
+        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          ditto -c -k --keepParent dist/YOLOWhisp.app "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple dist/YOLOWhisp.app
+          xcrun stapler validate dist/YOLOWhisp.app
 
       - name: Package artifacts
         run: |
