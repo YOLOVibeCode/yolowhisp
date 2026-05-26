@@ -14,7 +14,7 @@ set -euo pipefail
 
 CONFIG="${1:-debug}"
 APP_NAME="YOLOWhisp"
-BUNDLE_ID="com.yolovibecode.yolowhisp"
+BUNDLE_ID="com.noctusoft.yolowhisp"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"

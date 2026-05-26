@@ -19,6 +19,6 @@ cask "yolowhisp" do
 
   zap trash: [
     "~/Library/Application Support/YOLOWhisp",
-    "~/Library/Preferences/com.yolovibecode.yolowhisp.plist",
+    "~/Library/Preferences/com.noctusoft.yolowhisp.plist",
   ]
 end

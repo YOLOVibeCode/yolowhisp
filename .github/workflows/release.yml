@@ -78,7 +78,7 @@ jobs:
             <key>CFBundleExecutable</key>
             <string>YOLOWhisp</string>
             <key>CFBundleIdentifier</key>
-            <string>com.yolovibecode.yolowhisp</string>
+            <string>com.noctusoft.yolowhisp</string>
             <key>CFBundleName</key>
             <string>YOLOWhisp</string>
             <key>CFBundleVersion</key>
