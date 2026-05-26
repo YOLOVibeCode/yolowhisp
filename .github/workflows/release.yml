@@ -22,9 +22,14 @@ jobs:
         run: swift test
 
       # Signing + notarization run only when the repo has the secrets set.
-      # Without them the release still builds, just unsigned.
+      # Without them the release still builds, just unsigned. (The `secrets`
+      # context can't be used in `if:`, so we evaluate it once in a run step.)
+      - name: Check for signing secrets
+        id: signing
+        run: echo "enabled=${{ secrets.MACOS_CERT_P12 != '' }}" >> "$GITHUB_OUTPUT"
+
       - name: Import Developer ID certificate
-        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        if: steps.signing.outputs.enabled == 'true'
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -98,7 +103,7 @@ jobs:
           PLIST
 
       - name: Sign (Developer ID + hardened runtime)
-        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        if: steps.signing.outputs.enabled == 'true'
         env:
           SIGN_IDENTITY: "${{ secrets.MACOS_SIGN_IDENTITY || 'Developer ID Application: NoctuSoft, Inc. (N42FM5L5KD)' }}"
         run: |
@@ -112,7 +117,7 @@ jobs:
           codesign --verify --strict --verbose=2 dist/YOLOWhisp.app
 
       - name: Notarize and staple
-        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        if: steps.signing.outputs.enabled == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
