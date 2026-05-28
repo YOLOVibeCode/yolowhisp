@@ -27,12 +27,17 @@ public final class AudioCaptureEngine: AudioCapturing {
         // default when it was created, so a mic plugged in / selected later
         // (e.g. a Scarlett 2i2) would be ignored.
         audioEngine = AVAudioEngine()
-        let inputNode = audioEngine.inputNode
+        var inputNode = audioEngine.inputNode
 
         // If the user picked a specific device, route this engine's input to it.
         // (No selection = the fresh engine already uses the system default.)
-        if let deviceID = deviceID {
-            setInputDevice(deviceID, on: inputNode)
+        // If routing fails (e.g. a stale/aggregate device id → OSStatus -10851),
+        // rebuild on the system default so we still capture instead of getting
+        // a dead device with 0 bytes.
+        if let deviceID = deviceID, !setInputDevice(deviceID, on: inputNode) {
+            AppLog.error("Audio capture: could not select device \(deviceID); falling back to system default")
+            audioEngine = AVAudioEngine()
+            inputNode = audioEngine.inputNode
         }
 
         let inputFormat = inputNode.outputFormat(forBus: 0)
@@ -56,6 +61,12 @@ public final class AudioCaptureEngine: AudioCapturing {
         guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             AppLog.error("Audio capture: no converter from \(inputFormat) to 16kHz mono")
             return
+        }
+        // Take the FIRST input channel for our mono output. Many devices report
+        // multiple input channels (e.g. the built-in mic as 4ch); the default
+        // multi-channel→mono downmix can produce silence, so map explicitly.
+        if inputFormat.channelCount > 1 {
+            converter.channelMap = [0]
         }
 
         bufferLock.lock()
@@ -190,10 +201,11 @@ public final class AudioCaptureEngine: AudioCapturing {
 
     /// Route THIS engine's input to a specific device, without touching the
     /// system-wide default (the old behaviour changed it for every app).
-    private func setInputDevice(_ deviceID: AudioDeviceID, on inputNode: AVAudioInputNode) {
+    @discardableResult
+    private func setInputDevice(_ deviceID: AudioDeviceID, on inputNode: AVAudioInputNode) -> Bool {
         guard let unit = inputNode.audioUnit else {
             AppLog.error("Audio capture: input node has no audio unit; cannot select device \(deviceID)")
-            return
+            return false
         }
         var dev = deviceID
         let status = AudioUnitSetProperty(
@@ -206,7 +218,9 @@ public final class AudioCaptureEngine: AudioCapturing {
         )
         if status != noErr {
             AppLog.error("Audio capture: failed to set input device \(deviceID) (OSStatus \(status))")
+            return false
         }
+        return true
     }
 
     /// The device the input node is actually bound to (for logging/diagnostics).
