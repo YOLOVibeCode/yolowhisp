@@ -86,6 +86,18 @@ struct YOLOWhispApp: App {
                 setupDualOpinion()
                 setupPostProcessor()
                 setupHotkey()
+
+                // Surface Diagnostics on launch if a critical prerequisite is
+                // missing, so the user isn't left with a silent failure.
+                if hasCompletedOnboarding {
+                    let missingWhisper = !FileManager.default.fileExists(atPath: WhisperEngine.defaultWhisperPath)
+                    let missingModel = Self.sharedModelManager.currentModel == nil
+                    let missingMic = !PermissionManager().checkMicrophonePermission()
+                    if missingWhisper || missingModel || missingMic {
+                        AppLog.info("Auto-opening Diagnostics (missing: \(missingWhisper ? "whisper " : "")\(missingModel ? "model " : "")\(missingMic ? "mic" : ""))")
+                        openDiagnosticsWindow()
+                    }
+                }
             }
             Divider()
             Menu("Microphone") {

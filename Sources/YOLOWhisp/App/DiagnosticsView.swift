@@ -47,6 +47,12 @@ struct DiagnosticsView: View {
     // Logs
     @State private var logText = ""
 
+    // Health-check fix actions
+    @State private var busyStage: DiagnosticStage?
+    @State private var downloadProgress: Double = 0
+    @State private var fixNote: String?
+    @State private var ranHealthOnce = false
+
     init(services: AppServices) {
         self.services = services
         _diag = StateObject(wrappedValue: DiagnosticsService(services: services))
@@ -133,9 +139,15 @@ struct DiagnosticsView: View {
                         Text(diag.isRunning ? "Running…" : "Run Health Check")
                     }
                 }
-                .disabled(diag.isRunning)
+                .disabled(diag.isRunning || busyStage != nil)
             }
             .padding(12)
+
+            if let note = fixNote {
+                Text(note).font(.caption).foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12).padding(.bottom, 6)
+            }
 
             Divider()
 
@@ -146,6 +158,13 @@ struct DiagnosticsView: View {
                         Divider()
                     }
                 }
+            }
+        }
+        .onAppear {
+            // Auto-run once when Diagnostics opens.
+            if !ranHealthOnce {
+                ranHealthOnce = true
+                Task { await diag.runAll() }
             }
         }
     }
@@ -167,15 +186,96 @@ struct DiagnosticsView: View {
                 }
             }
             Spacer()
+            if busyStage == stage {
+                if result?.fix == .downloadModel {
+                    ProgressView(value: downloadProgress).frame(width: 64)
+                } else {
+                    ProgressView().controlSize(.small)
+                }
+            } else if let fix = result?.fix {
+                Button(fixLabel(fix)) { performFix(stage, fix) }
+                    .controlSize(.small)
+                    .disabled(diag.isRunning || busyStage != nil)
+            }
             Button {
                 Task { diag.results[stage] = await diag.run(stage) }
             } label: {
                 Image(systemName: "arrow.clockwise").font(.caption2)
             }
             .buttonStyle(.plain).foregroundColor(.secondary)
-            .disabled(diag.isRunning)
+            .disabled(diag.isRunning || busyStage != nil)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
+    }
+
+    private func fixLabel(_ kind: FixKind) -> String {
+        switch kind {
+        case .openAccessibility: return "Open Settings"
+        case .requestMic:        return "Grant"
+        case .downloadModel:     return "Download base"
+        case .installWhisper:    return "Install"
+        }
+    }
+
+    private func performFix(_ stage: DiagnosticStage, _ kind: FixKind) {
+        fixNote = nil
+        switch kind {
+        case .openAccessibility:
+            services.permissions.openAccessibilitySettings()
+            fixNote = "Toggle YOLOWhisp on in Accessibility, then re-run."
+            rerun(stage, after: 0.5)
+        case .requestMic:
+            Task {
+                _ = await services.permissions.requestMicrophonePermission()
+                diag.results[stage] = await diag.run(stage)
+            }
+        case .downloadModel:
+            busyStage = stage; downloadProgress = 0
+            Task {
+                do {
+                    let downloader = ModelDownloader()
+                    _ = try await downloader.download(model: "base") { p in
+                        Task { @MainActor in downloadProgress = p }
+                    }
+                    // Load the freshly-downloaded model into the shared manager.
+                    let models = services.modelManager.availableModels()
+                    if let m = models.first(where: { $0.name == "base" }) ?? models.first {
+                        try? services.modelManager.loadModel(m)
+                    }
+                    fixNote = "Downloaded base model."
+                } catch {
+                    AppLog.error("Model download failed: \(error)")
+                    fixNote = "Download failed — see Logs."
+                }
+                busyStage = nil
+                diag.results[.modelLoaded] = await diag.run(.modelLoaded)
+                diag.results[.endToEnd] = await diag.run(.endToEnd)
+            }
+        case .installWhisper:
+            let candidates = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+            guard let brew = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString("brew install whisper-cpp", forType: .string)
+                fixNote = "Homebrew not found — copied “brew install whisper-cpp” to clipboard."
+                return
+            }
+            busyStage = stage
+            Task {
+                let runner = ProcessRunner(timeout: 600)
+                let result = try? runner.run(executablePath: brew, arguments: ["install", "whisper-cpp"])
+                AppLog.info("brew install whisper-cpp exit \(result?.exitCode ?? -1)")
+                fixNote = (result?.exitCode == 0) ? "Installed whisper-cpp." : "Install failed — run “brew install whisper-cpp” manually."
+                busyStage = nil
+                diag.results[stage] = await diag.run(stage)
+            }
+        }
+    }
+
+    private func rerun(_ stage: DiagnosticStage, after seconds: Double) {
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            diag.results[stage] = await diag.run(stage)
+        }
     }
 
     @ViewBuilder

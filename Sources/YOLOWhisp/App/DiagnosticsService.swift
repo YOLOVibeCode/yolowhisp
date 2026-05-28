@@ -24,11 +24,17 @@ public enum DiagnosticStage: String, CaseIterable, Identifiable {
     }
 }
 
+/// A one-click fix the Diagnostics UI can offer for a failing stage.
+public enum FixKind {
+    case openAccessibility, requestMic, downloadModel, installWhisper
+}
+
 public struct CheckResult: Identifiable {
     public let id: DiagnosticStage
     public var status: CheckStatus
     public var detail: String
     public var remediation: String?
+    public var fix: FixKind? = nil
 }
 
 /// Runs each pipeline stage against the REAL app components and reports a
@@ -70,7 +76,8 @@ final class DiagnosticsService: ObservableObject {
         let ok = services.permissions.checkMicrophonePermission()
         return CheckResult(id: .micPermission, status: ok ? .ok : .fail,
                            detail: ok ? "Granted" : "Not granted",
-                           remediation: ok ? nil : "System Settings → Privacy & Security → Microphone → enable YOLOWhisp")
+                           remediation: ok ? nil : "System Settings → Privacy & Security → Microphone → enable YOLOWhisp",
+                           fix: ok ? nil : .requestMic)
     }
 
     private func checkAccessibility() -> CheckResult {
@@ -78,7 +85,8 @@ final class DiagnosticsService: ObservableObject {
         // Needed for global hotkeys and keystroke/accessibility output.
         return CheckResult(id: .accessibilityPermission, status: ok ? .ok : .fail,
                            detail: ok ? "Granted" : "Not granted",
-                           remediation: ok ? nil : "System Settings → Privacy & Security → Accessibility → enable YOLOWhisp")
+                           remediation: ok ? nil : "System Settings → Privacy & Security → Accessibility → enable YOLOWhisp",
+                           fix: ok ? nil : .openAccessibility)
     }
 
     private func checkWhisperCLI() -> CheckResult {
@@ -86,7 +94,8 @@ final class DiagnosticsService: ObservableObject {
         let ok = FileManager.default.fileExists(atPath: path)
         return CheckResult(id: .whisperCLI, status: ok ? .ok : .fail,
                            detail: ok ? path : "Not found at \(path)",
-                           remediation: ok ? nil : "brew install whisper-cpp")
+                           remediation: ok ? nil : "brew install whisper-cpp",
+                           fix: ok ? nil : .installWhisper)
     }
 
     private func checkModel() -> CheckResult {
@@ -94,7 +103,8 @@ final class DiagnosticsService: ObservableObject {
         guard let current = services.modelManager.currentModel else {
             let detail = models.isEmpty ? "No models found" : "None loaded (\(models.count) available)"
             return CheckResult(id: .modelLoaded, status: .fail, detail: detail,
-                               remediation: "Download a model into ~/.local/share/whisper, then pick it in Settings")
+                               remediation: "Download a Whisper model (base ≈ 147MB)",
+                               fix: .downloadModel)
         }
         let exists = FileManager.default.fileExists(atPath: current.path)
         return CheckResult(id: .modelLoaded, status: exists ? .ok : .fail,
@@ -150,8 +160,12 @@ final class DiagnosticsService: ObservableObject {
             pill: NullPillDisplay()
         )
         controller.outputMode = sink.mode
+        // Mute the start/stop chirps for the silent self-test.
+        let priorStyle = SoundFeedback.shared.currentStyle
+        SoundFeedback.shared.setStyle(.none)
         controller.startDictation()
         await controller.stopDictation()
+        SoundFeedback.shared.setStyle(priorStyle)
         let text = sink.captured.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty {
             return CheckResult(id: .endToEnd, status: .fail,
@@ -167,7 +181,8 @@ final class DiagnosticsService: ObservableObject {
         let axOK = services.permissions.checkAccessibilityPermission()
         if needsAX && !axOK {
             return CheckResult(id: .outputMode, status: .warn, detail: "\(label(mode)) — needs Accessibility",
-                               remediation: "Grant Accessibility so output can be inserted")
+                               remediation: "Grant Accessibility so output can be inserted",
+                               fix: .openAccessibility)
         }
         return CheckResult(id: .outputMode, status: .ok, detail: label(mode), remediation: nil)
     }

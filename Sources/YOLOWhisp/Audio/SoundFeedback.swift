@@ -32,6 +32,8 @@ public final class SoundFeedback {
 
     private init() {}
 
+    public var currentStyle: SoundStyle { style }
+
     public func setStyle(_ style: SoundStyle) {
         self.style = style
     }
