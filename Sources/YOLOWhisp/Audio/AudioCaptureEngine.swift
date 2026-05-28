@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreAudio
+import AudioToolbox
 
 public final class AudioCaptureEngine: AudioCapturing {
     public static let targetSampleRate: Double = 16000.0
@@ -12,7 +13,7 @@ public final class AudioCaptureEngine: AudioCapturing {
     /// Set before calling startCapture(). nil = system default.
     public var deviceID: AudioDeviceID?
 
-    private let audioEngine = AVAudioEngine()
+    private var audioEngine = AVAudioEngine()
     private var buffers: [Data] = []
     private let bufferLock = NSLock()
 
@@ -21,12 +22,27 @@ public final class AudioCaptureEngine: AudioCapturing {
     public func startCapture() {
         guard !isCapturing else { return }
 
+        // Recreate the engine each time so its input node binds to the CURRENT
+        // default input device. A long-lived engine stays stuck on whatever was
+        // default when it was created, so a mic plugged in / selected later
+        // (e.g. a Scarlett 2i2) would be ignored.
+        audioEngine = AVAudioEngine()
+        let inputNode = audioEngine.inputNode
+
+        // If the user picked a specific device, route this engine's input to it.
+        // (No selection = the fresh engine already uses the system default.)
         if let deviceID = deviceID {
-            setInputDevice(deviceID)
+            setInputDevice(deviceID, on: inputNode)
         }
 
-        let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        let usedDevice = Self.currentInputDevice(of: inputNode) ?? deviceID
+        AppLog.info("Audio capture: device=\(usedDevice.map { "\(Self.deviceName($0) ?? "?") [\($0)]" } ?? "default/unknown"), format=\(Int(inputFormat.sampleRate))Hz/\(inputFormat.channelCount)ch")
+
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            AppLog.error("Audio capture: input device has no usable format (no mic / no permission?)")
+            return
+        }
 
         // Target format: 16kHz mono 16-bit PCM
         guard let targetFormat = AVAudioFormat(
@@ -37,7 +53,10 @@ public final class AudioCaptureEngine: AudioCapturing {
         ) else { return }
 
         // Install converter if needed
-        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else { return }
+        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+            AppLog.error("Audio capture: no converter from \(inputFormat) to 16kHz mono")
+            return
+        }
 
         bufferLock.lock()
         buffers.removeAll()
@@ -57,7 +76,17 @@ public final class AudioCaptureEngine: AudioCapturing {
             ) else { return }
 
             var error: NSError?
+            // Provide the input buffer exactly once. The converter may call this
+            // block multiple times per convert() while resampling (e.g. 48k->16k);
+            // returning the same buffer with .haveData each time re-consumes it and
+            // corrupts the output. Signal .noDataNow after the first feed.
+            var fed = false
             let status = converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
+                if fed {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                fed = true
                 outStatus.pointee = .haveData
                 return buffer
             }
@@ -85,6 +114,7 @@ public final class AudioCaptureEngine: AudioCapturing {
             try audioEngine.start()
             isCapturing = true
         } catch {
+            AppLog.error("Audio capture: engine failed to start: \(error)")
             inputNode.removeTap(onBus: 0)
         }
     }
@@ -101,6 +131,8 @@ public final class AudioCaptureEngine: AudioCapturing {
         buffers.removeAll()
         bufferLock.unlock()
 
+        let seconds = Double(pcmData.count) / 2.0 / Self.targetSampleRate
+        AppLog.info("Audio capture stopped: \(pcmData.count) bytes (~\(String(format: "%.1f", seconds))s of 16kHz mono)")
         return pcmData
     }
 
@@ -156,20 +188,50 @@ public final class AudioCaptureEngine: AudioCapturing {
 
     // MARK: - Private
 
-    private func setInputDevice(_ deviceID: AudioDeviceID) {
-        var deviceID = deviceID
-        var propertyAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+    /// Route THIS engine's input to a specific device, without touching the
+    /// system-wide default (the old behaviour changed it for every app).
+    private func setInputDevice(_ deviceID: AudioDeviceID, on inputNode: AVAudioInputNode) {
+        guard let unit = inputNode.audioUnit else {
+            AppLog.error("Audio capture: input node has no audio unit; cannot select device \(deviceID)")
+            return
+        }
+        var dev = deviceID
+        let status = AudioUnitSetProperty(
+            unit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &dev,
+            UInt32(MemoryLayout<AudioDeviceID>.size)
+        )
+        if status != noErr {
+            AppLog.error("Audio capture: failed to set input device \(deviceID) (OSStatus \(status))")
+        }
+    }
+
+    /// The device the input node is actually bound to (for logging/diagnostics).
+    static func currentInputDevice(of inputNode: AVAudioInputNode) -> AudioDeviceID? {
+        guard let unit = inputNode.audioUnit else { return nil }
+        var dev: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioUnitGetProperty(
+            unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &dev, &size
+        )
+        return status == noErr ? dev : nil
+    }
+
+    /// Human-readable name for a CoreAudio device ID.
+    static func deviceName(_ id: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        AudioObjectSetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject),
-            &propertyAddress,
-            0, nil,
-            UInt32(MemoryLayout<AudioDeviceID>.size),
-            &deviceID
-        )
+        var nameRef: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &nameRef)
+        guard status == noErr, let cf = nameRef?.takeRetainedValue() else { return nil }
+        return cf as String
     }
 }
 

@@ -37,6 +37,7 @@ struct YOLOWhispApp: App {
     }()
 
     private let hotkeyManager = HotkeyManager()
+    private let windowStore = AppWindowStore()
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("outputMode") private var outputModeSetting: String = OutputMode.simulatedKeystrokes.rawValue
@@ -100,7 +101,8 @@ struct YOLOWhispApp: App {
                     }
                 }
                 Divider()
-                ForEach(availableMicrophones, id: \.id) { mic in
+                // Recompute on each open so newly-connected devices appear.
+                ForEach(Self.listInputDevices(), id: \.id) { mic in
                     Button {
                         selectedMicrophoneID = Int(mic.id)
                         applyMicrophoneSelection()
@@ -304,44 +306,56 @@ struct YOLOWhispApp: App {
     }
 
     private func openDiagnosticsWindow() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 460),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "YOLOWhisp Diagnostics"
-        window.contentView = NSHostingView(rootView: DiagnosticsView())
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        windowStore.show(.diagnostics, title: "YOLOWhisp Diagnostics",
+                         size: NSSize(width: 520, height: 460), resizable: true) {
+            NSHostingView(rootView: DiagnosticsView())
+        }
     }
 
     private func openSettingsWindow() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 500),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "YOLOWhisp Settings"
-        window.contentView = NSHostingView(rootView: SettingsView())
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        windowStore.show(.settings, title: "YOLOWhisp Settings",
+                         size: NSSize(width: 450, height: 500), resizable: false) {
+            NSHostingView(rootView: SettingsView())
+        }
     }
 
     private func openHistoryWindow() {
+        windowStore.show(.history, title: "Dictation History",
+                         size: NSSize(width: 500, height: 400), resizable: true) {
+            NSHostingView(rootView: HistoryView(store: historyStore))
+        }
+    }
+}
+
+/// Retains and reuses the app's auxiliary windows. Creating an NSWindow as a
+/// local with the default `isReleasedWhenClosed = true` caused an over-release
+/// crash (EXC_BAD_ACCESS in _NSWindowTransformAnimation dealloc) when the
+/// window closed. Here windows are kept alive, not released on close, and
+/// reused so repeated menu clicks don't stack duplicates.
+final class AppWindowStore {
+    enum Kind { case diagnostics, settings, history }
+    private var windows: [Kind: NSWindow] = [:]
+
+    func show(_ kind: Kind, title: String, size: NSSize, resizable: Bool, makeContent: () -> NSView) {
+        if let existing = windows[kind] {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        var style: NSWindow.StyleMask = [.titled, .closable]
+        if resizable { style.insert(.resizable) }
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
-            styleMask: [.titled, .closable, .resizable],
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: style,
             backing: .buffered,
             defer: false
         )
-        window.title = "Dictation History"
-        window.contentView = NSHostingView(rootView: HistoryView(store: historyStore))
+        window.isReleasedWhenClosed = false   // ARC owns it; avoids the double-free on close
+        window.title = title
+        window.contentView = makeContent()
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        windows[kind] = window
     }
 }
