@@ -105,7 +105,12 @@ public final class KeystrokeTyper: TextOutputting {
     public func output(text: String) async throws {
         let source = CGEventSource(stateID: .hidSystemState)
         // Resolve against the active layout first, then the static US map.
-        let layoutMap = Self.layoutKeyMap()
+        // The Text Input Source APIs assert they run on the main thread, but
+        // output() is driven from the async dictation pipeline (a background
+        // thread) — so build the layout map on the main actor to avoid a
+        // HIToolbox SIGTRAP. The actual key posting stays off-main so the long
+        // per-character sleeps don't block the UI.
+        let layoutMap = await MainActor.run { Self.layoutKeyMap() }
 
         for ch in text {
             if let mapping = layoutMap[ch] ?? Self.keyMap[ch] {

@@ -74,6 +74,8 @@ struct YOLOWhispApp: App {
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
             .onAppear {
+                AppLog.installCrashHandlers()
+                AppLog.info("YOLOWhisp launched")
                 controller.outputMode = OutputMode(rawValue: outputModeSetting) ?? .simulatedKeystrokes
                 controller.postProcessEnabled = aiPolishEnabled
                 SoundFeedback.shared.setStyle(SoundFeedback.SoundStyle(rawValue: soundStyle) ?? .tinkPop)

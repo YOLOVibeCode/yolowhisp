@@ -45,6 +45,9 @@ struct DiagnosticsView: View {
 
     @State private var selectedTab = 0
 
+    // Logs
+    @State private var logText = ""
+
     var body: some View {
         VStack(spacing: 0) {
             // Tab bar
@@ -53,6 +56,7 @@ struct DiagnosticsView: View {
                 tabButton("Microphone", icon: "mic", tab: 1)
                 tabButton("Dictation", icon: "text.bubble", tab: 2)
                 tabButton("Key Log", icon: "list.bullet.rectangle", tab: 3)
+                tabButton("Logs", icon: "doc.text.magnifyingglass", tab: 4)
             }
             .padding(.horizontal, 8)
             .padding(.top, 8)
@@ -65,6 +69,7 @@ struct DiagnosticsView: View {
             case 1: microphoneTab
             case 2: dictationTab
             case 3: keyLogTab
+            case 4: logsTab
             default: EmptyView()
             }
         }
@@ -102,6 +107,37 @@ struct DiagnosticsView: View {
             .foregroundColor(selectedTab == tab ? .accentColor : .secondary)
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Logs Tab
+
+    private var logsTab: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Application Log").font(.headline)
+                Spacer()
+                Button("Refresh") { logText = AppLog.recentLines() }
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([AppLog.fileURL])
+                }
+            }
+            ScrollView {
+                Text(logText.isEmpty ? "No log entries yet." : logText)
+                    .font(.system(size: 11, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: .infinity)
+            .padding(6)
+            .background(Color(NSColor.textBackgroundColor))
+            .cornerRadius(6)
+            Text(AppLog.fileURL.path)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .textSelection(.enabled)
+        }
+        .padding(12)
+        .onAppear { logText = AppLog.recentLines() }
     }
 
     // MARK: - Hotkeys Tab

@@ -105,7 +105,7 @@ public final class DictationController: ObservableObject {
             )
             try historyStore.save(entry: entry)
         } catch {
-            // Log error
+            AppLog.error("Dictation pipeline failed: \(error)")
         }
 
         pill.setState(.idle)

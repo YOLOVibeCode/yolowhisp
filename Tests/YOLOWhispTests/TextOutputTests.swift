@@ -70,6 +70,17 @@ final class TextOutputTests: XCTestCase {
         }
     }
 
+    // Regression: layoutKeyMap() uses Text Input Source APIs that assert the
+    // main thread, but output() runs from the async dictation pipeline
+    // (off-main). This used to SIGTRAP. Empty text exercises the layout query
+    // without posting any real keystrokes.
+    func testOutputFromBackgroundThreadDoesNotCrash() async throws {
+        try await Task.detached {
+            try await KeystrokeTyper().output(text: "")
+        }.value
+        // Reaching here (no trap) means the main-thread hop works.
+    }
+
     func testKeystrokeTyperLayoutMapBuilds() {
         // Exercises the UCKeyTranslate path. On any Latin layout the alphabet
         // is reachable; if the active input source exposes no layout data
