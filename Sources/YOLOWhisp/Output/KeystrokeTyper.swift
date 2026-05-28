@@ -4,7 +4,11 @@ import AppKit
 
 public final class KeystrokeTyper: TextOutputting {
     public let mode: OutputMode = .simulatedKeystrokes
-    public init() {}
+    public var typingSpeed: TypingSpeed = .medium
+    
+    public init(typingSpeed: TypingSpeed = .medium) {
+        self.typingSpeed = typingSpeed
+    }
 
     public struct KeyMapping {
         public let keyCode: CGKeyCode
@@ -139,7 +143,7 @@ public final class KeystrokeTyper: TextOutputting {
                 keyDown.post(tap: .cghidEventTap)
                 keyUp.post(tap: .cghidEventTap)
             }
-            usleep(5000)
+            usleep(typingSpeed.delayMicroseconds)
         }
     }
 }

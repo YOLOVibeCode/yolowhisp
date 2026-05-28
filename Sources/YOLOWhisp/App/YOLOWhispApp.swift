@@ -9,6 +9,7 @@ struct YOLOWhispApp: App {
 
     private static let sharedAudioCapture = AudioCaptureEngine()
     private static let sharedModelManager = ModelManager()
+    private static let sharedKeystrokeTyper = KeystrokeTyper()
 
     @StateObject private var controller: DictationController = {
         let audioCapture = sharedAudioCapture
@@ -16,7 +17,7 @@ struct YOLOWhispApp: App {
         let transcriber = WhisperEngine(whisperPath: WhisperEngine.resolvedWhisperPath, modelManager: modelManager)
         let textOutputManager = TextOutputManager(outputs: [
             .clipboardPaste: ClipboardPaster(),
-            .simulatedKeystrokes: KeystrokeTyper(),
+            .simulatedKeystrokes: sharedKeystrokeTyper,
             .accessibilityInsertion: AccessibilityInserter(),
         ])
         let historyStore = HistoryStore(databasePath: {
@@ -54,6 +55,7 @@ struct YOLOWhispApp: App {
     @AppStorage("aiModelName") private var aiModelName: String = ""
     @AppStorage("aiApiKey") private var aiApiKey: String = ""
     @AppStorage("soundStyle") private var soundStyle: String = SoundFeedback.SoundStyle.tinkPop.rawValue
+    @AppStorage("typingSpeed") private var typingSpeed: String = TypingSpeed.medium.rawValue
 
     private let updateChecker = GitHubUpdateChecker()
 
@@ -80,6 +82,7 @@ struct YOLOWhispApp: App {
                 controller.outputMode = OutputMode(rawValue: outputModeSetting) ?? .simulatedKeystrokes
                 controller.postProcessEnabled = aiPolishEnabled
                 SoundFeedback.shared.setStyle(SoundFeedback.SoundStyle(rawValue: soundStyle) ?? .tinkPop)
+                Self.sharedKeystrokeTyper.typingSpeed = TypingSpeed(rawValue: typingSpeed) ?? .medium
                 loadWhisperModel()
                 availableMicrophones = Self.listInputDevices()
                 applyMicrophoneSelection()
@@ -183,6 +186,9 @@ struct YOLOWhispApp: App {
         .onChange(of: aiProvider) { _, _ in setupDualOpinion(); setupPostProcessor() }
         .onChange(of: aiModelName) { _, _ in setupDualOpinion(); setupPostProcessor() }
         .onChange(of: aiApiKey) { _, _ in setupDualOpinion(); setupPostProcessor() }
+        .onChange(of: typingSpeed) { _, newValue in
+            Self.sharedKeystrokeTyper.typingSpeed = TypingSpeed(rawValue: newValue) ?? .medium
+        }
     }
 
     private func setupHotkey() {

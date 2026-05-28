@@ -21,6 +21,7 @@ struct SettingsView: View {
     @AppStorage("selectedMicrophoneID") private var selectedMicrophoneID: Int = 0
     @AppStorage("menuBarIcon") private var menuBarIconStyle: String = MenuBarIconStyle.whisperBubble.rawValue
     @AppStorage("soundStyle") private var soundStyle: String = SoundFeedback.SoundStyle.tinkPop.rawValue
+    @AppStorage("typingSpeed") private var typingSpeed: String = TypingSpeed.medium.rawValue
 
     @State private var availableMicrophones: [(id: AudioDeviceID, name: String)] = []
     @State private var micTestLevel: Float = 0.0
@@ -108,6 +109,14 @@ struct SettingsView: View {
                     Text("Clipboard Paste").tag(OutputMode.clipboardPaste.rawValue)
                     Text("Simulated Keystrokes").tag(OutputMode.simulatedKeystrokes.rawValue)
                     Text("Accessibility Insertion").tag(OutputMode.accessibilityInsertion.rawValue)
+                }
+                
+                if outputMode == OutputMode.simulatedKeystrokes.rawValue {
+                    Picker("Typing Speed", selection: $typingSpeed) {
+                        ForEach(TypingSpeed.allCases, id: \.rawValue) { speed in
+                            Text(speed.displayName).tag(speed.rawValue)
+                        }
+                    }
                 }
             }
 
