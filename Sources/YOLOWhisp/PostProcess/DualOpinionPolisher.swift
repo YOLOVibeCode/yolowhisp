@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Creates its own provider instance with a merge-specific system prompt,
 /// then sends both candidate texts for the LLM to adjudicate.
-public final class DualOpinionPolisher {
+public final class DualOpinionPolisher: CandidateMerging {
     private let config: PostProcessorConfig
     private let session: URLSession
 

@@ -196,6 +196,33 @@ final class PostProcessingTests: XCTestCase {
         }
     }
 
+    // Regression: a non-2xx status (e.g. Ollama 404 for an uninstalled model)
+    // must surface as PostProcessError.apiError — not a silent success.
+    func testHTTPErrorStatusThrowsAPIError() async throws {
+        let config = PostProcessorConfig(
+            providerType: .ollama, modelName: "not-installed-model",
+            endpoint: "http://localhost:11434/api/generate"
+        )
+        let session = mockSession()
+        let provider = OllamaProvider(config: config, session: session)
+
+        MockURLProtocol.requestHandler = { _ in
+            (self.mockResponse(url: "http://localhost:11434/api/generate", statusCode: 404),
+             Data("model not found".utf8))
+        }
+
+        do {
+            _ = try await provider.process(text: "test")
+            XCTFail("Expected PostProcessError.apiError")
+        } catch let error as PostProcessError {
+            if case .apiError = error {
+                // pass
+            } else {
+                XCTFail("Expected .apiError, got \(error)")
+            }
+        }
+    }
+
     func testInvalidResponseThrows() async throws {
         let config = PostProcessorConfig(
             providerType: .ollama, modelName: "llama3",

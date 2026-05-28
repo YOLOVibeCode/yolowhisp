@@ -63,10 +63,24 @@ final class MockPostProcessor: PostProcessing {
     var processCalled = false
     var receivedText: String?
     var stubbedResult = "Hello, world."
+    var shouldThrow = false
 
     func process(text: String) async throws -> String {
         processCalled = true
         receivedText = text
+        if shouldThrow { throw NSError(domain: "postprocess", code: 1) }
+        return stubbedResult
+    }
+}
+
+final class MockMerger: CandidateMerging {
+    var shouldThrow = false
+    var mergeCalled = false
+    var stubbedResult = "merged result"
+
+    func merge(candidates: [String]) async throws -> String {
+        mergeCalled = true
+        if shouldThrow { throw NSError(domain: "merge", code: 1) }
         return stubbedResult
     }
 }
@@ -231,6 +245,35 @@ final class DictationControllerTests: XCTestCase {
 
         XCTAssertTrue(late.processCalled)
         XCTAssertEqual(textOutput.receivedText, "Injected.")
+    }
+
+    // Resilience: an optional polish step failing must NOT drop the dictation —
+    // the raw transcription should still be typed and saved.
+    func testPostProcessorFailureStillOutputsRawTranscription() async {
+        controller.postProcessEnabled = true
+        postProcessor.shouldThrow = true
+        controller.startDictation()
+        await controller.stopDictation()
+        XCTAssertEqual(textOutput.receivedText, "hello world")
+        XCTAssertTrue(historyStore.saveCalled)
+        XCTAssertNotNil(controller.lastRunInfo?.error)
+    }
+
+    // Resilience: a dual-opinion merge failure falls back to the primary candidate.
+    func testDualMergeFailureFallsBackToPrimary() async {
+        let second = MockTranscriber()
+        second.stubbedResult = TranscriptionResult(text: "second version", duration: 1, modelUsed: "small")
+        controller.secondTranscriber = second
+        let merger = MockMerger()
+        merger.shouldThrow = true
+        controller.dualOpinionPolisher = merger
+
+        controller.startDictation()
+        await controller.stopDictation()
+
+        XCTAssertTrue(merger.mergeCalled)
+        XCTAssertEqual(textOutput.receivedText, "hello world") // primary candidate
+        XCTAssertTrue(historyStore.saveCalled)
     }
 
     // Offline dual-model mode: two candidates, a consensus strategy, no

@@ -130,6 +130,39 @@ final class IntegrationTests: XCTestCase {
         XCTAssertEqual(pill.stateHistory, [.recording, .processing, .idle])
     }
 
+    /// Dual-model: two real whisper engines run in parallel and an offline
+    /// consensus picks the winner, all through the real DictationController.
+    func testDualModelConsensusEndToEnd() async throws {
+        try skipIfNoWhisper()
+        guard let pcm = sampleSpeechPCM() else { throw XCTSkip("sample WAV not present (gitignored)") }
+
+        let manager = ModelManager()
+        let models = manager.availableModels().sorted { $0.size < $1.size }
+        try XCTSkipIf(models.count < 2, "need at least two whisper models for dual-model test")
+
+        let mm1 = ModelManager(); try mm1.loadModel(models[0])
+        let mm2 = ModelManager(); try mm2.loadModel(models[1])
+
+        let sink = CapturingTextOutput()
+        let controller = DictationController(
+            audioCapture: FileAudioCapture(pcm: pcm),
+            transcriber: WhisperEngine(whisperPath: whisperPath, modelManager: mm1),
+            textOutputManager: TextOutputManager(outputs: [sink.mode: sink]),
+            historyStore: HistoryStore(),
+            pill: MockIntegrationPill()
+        )
+        controller.secondTranscriber = WhisperEngine(whisperPath: whisperPath, modelManager: mm2)
+        controller.consensusStrategy = MajorityVoteConsensus()
+        controller.outputMode = sink.mode
+
+        controller.startDictation()
+        await controller.stopDictation()
+
+        let typed = sink.captured.joined(separator: " ").lowercased()
+        XCTAssertFalse(typed.isEmpty, "dual-model consensus produced no text")
+        XCTAssertTrue(typed.contains("squire"), "got: \(typed)")
+    }
+
     // MARK: - Model Manager Integration
 
     func testModelManagerFindsInstalledModels() throws {

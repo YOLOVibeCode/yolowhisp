@@ -18,7 +18,7 @@ public final class DictationController: ObservableObject {
     public var secondTranscriber: (any Transcribing)?
 
     /// Optional dual opinion polisher — merges two transcription candidates via LLM.
-    public var dualOpinionPolisher: DualOpinionPolisher?
+    public var dualOpinionPolisher: (any CandidateMerging)?
 
     /// Optional offline merge strategy — picks the best of multiple candidates
     /// without an LLM. Used for dual-model mode when AI merge isn't selected.
@@ -103,18 +103,31 @@ public final class DictationController: ObservableObject {
             modelsUsed = candidates.map(\.modelUsed).joined(separator: "+")
             var processedText: String? = nil
 
-            // Dual opinion merge (AI), offline consensus vote, or single polish
+            // Optional enhancement: dual-opinion merge (AI), offline consensus
+            // vote, or single-pass polish. These must NEVER drop the dictation —
+            // if the optional step fails (e.g. AI provider 404), fall back to the
+            // raw transcription and record the error, but still output + save.
             if let polisher = dualOpinionPolisher, candidates.count > 1 {
-                let merged = try await polisher.merge(candidates: candidates.map(\.text))
-                processedText = merged
-                finalText = merged
+                do {
+                    let merged = try await polisher.merge(candidates: candidates.map(\.text))
+                    processedText = merged
+                    finalText = merged
+                } catch {
+                    runError = "merge failed (using primary): \(error)"
+                    AppLog.error(runError!)
+                }
             } else if let strategy = consensusStrategy, candidates.count > 1 {
                 // Offline: pick the best candidate, no LLM involved.
                 finalText = strategy.selectBest(from: candidates).text
             } else if postProcessEnabled, let processor = postProcessor {
-                let processed = try await processor.process(text: primaryResult.text)
-                processedText = processed
-                finalText = processed
+                do {
+                    let processed = try await processor.process(text: primaryResult.text)
+                    processedText = processed
+                    finalText = processed
+                } catch {
+                    runError = "AI polish failed (using raw transcription): \(error)"
+                    AppLog.error(runError!)
+                }
             }
 
             try await textOutputManager.output(text: finalText, mode: outputMode)
