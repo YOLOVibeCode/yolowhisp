@@ -70,4 +70,18 @@ final class DiagnosticsServiceTests: XCTestCase {
         let s = await makeService(mic: true, ax: true, whisperPath: "/bin/echo").run(.aiProvider).status
         XCTAssertEqual(s, .skipped)
     }
+
+    // "Set up everything" must run fixes in a sensible order and skip non-fixable/ok rows.
+    func testFixableStagesOrderedAndFiltered() async {
+        let svc = makeService(mic: true, ax: true, whisperPath: "/bin/echo")
+        svc.results = [
+            .modelLoaded: CheckResult(id: .modelLoaded, status: .fail, detail: "", remediation: nil, fix: .downloadModel),
+            .micPermission: CheckResult(id: .micPermission, status: .fail, detail: "", remediation: nil, fix: .requestMic),
+            .whisperCLI: CheckResult(id: .whisperCLI, status: .fail, detail: "", remediation: nil, fix: .installWhisper),
+            .accessibilityPermission: CheckResult(id: .accessibilityPermission, status: .warn, detail: "", remediation: nil, fix: .openAccessibility),
+            .inputDevice: CheckResult(id: .inputDevice, status: .ok, detail: "", remediation: nil, fix: nil),
+        ]
+        XCTAssertEqual(svc.fixableStages().map(\.fix),
+                       [.requestMic, .openAccessibility, .installWhisper, .downloadModel])
+    }
 }

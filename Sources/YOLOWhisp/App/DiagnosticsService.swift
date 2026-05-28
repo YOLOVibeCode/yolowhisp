@@ -25,7 +25,7 @@ public enum DiagnosticStage: String, CaseIterable, Identifiable {
 }
 
 /// A one-click fix the Diagnostics UI can offer for a failing stage.
-public enum FixKind {
+public enum FixKind: Equatable {
     case openAccessibility, requestMic, downloadModel, installWhisper
 }
 
@@ -46,6 +46,21 @@ final class DiagnosticsService: ObservableObject {
 
     private let services: AppServices
     init(services: AppServices) { self.services = services }
+
+    /// Failing/warning stages that offer a one-click fix, in the order
+    /// "Set up everything" should run them (permissions → whisper-cli → model).
+    func fixableStages() -> [(stage: DiagnosticStage, fix: FixKind)] {
+        let order: [FixKind] = [.requestMic, .openAccessibility, .installWhisper, .downloadModel]
+        var out: [(DiagnosticStage, FixKind)] = []
+        for kind in order {
+            for stage in DiagnosticStage.allCases {
+                if let r = results[stage], r.fix == kind, r.status == .fail || r.status == .warn {
+                    out.append((stage, kind))
+                }
+            }
+        }
+        return out
+    }
 
     func runAll() async {
         isRunning = true

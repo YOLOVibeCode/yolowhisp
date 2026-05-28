@@ -4,7 +4,6 @@ import CoreAudio
 
 struct DiagnosticsView: View {
     let services: AppServices
-    @StateObject private var diag: DiagnosticsService
     @ObservedObject private var controller: DictationController
 
     @AppStorage("hotkeys") private var hotkeysJSON: String = StoredHotkey.encode([StoredHotkey()])
@@ -47,15 +46,8 @@ struct DiagnosticsView: View {
     // Logs
     @State private var logText = ""
 
-    // Health-check fix actions
-    @State private var busyStage: DiagnosticStage?
-    @State private var downloadProgress: Double = 0
-    @State private var fixNote: String?
-    @State private var ranHealthOnce = false
-
     init(services: AppServices) {
         self.services = services
-        _diag = StateObject(wrappedValue: DiagnosticsService(services: services))
         _controller = ObservedObject(wrappedValue: services.controller)
     }
 
@@ -75,7 +67,7 @@ struct DiagnosticsView: View {
             Divider().padding(.top, 4)
 
             switch selectedTab {
-            case 0: healthTab
+            case 0: HealthCheckView(services: services)
             case 1: hotkeyTab
             case 2: microphoneTab
             case 3: dictationTab
@@ -122,172 +114,6 @@ struct DiagnosticsView: View {
             .foregroundColor(selectedTab == tab ? .accentColor : .secondary)
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Health Check Tab
-
-    private var healthTab: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Pipeline Health").font(.headline)
-                Spacer()
-                Button {
-                    Task { await diag.runAll() }
-                } label: {
-                    HStack(spacing: 5) {
-                        if diag.isRunning { ProgressView().controlSize(.small) }
-                        Text(diag.isRunning ? "Running…" : "Run Health Check")
-                    }
-                }
-                .disabled(diag.isRunning || busyStage != nil)
-            }
-            .padding(12)
-
-            if let note = fixNote {
-                Text(note).font(.caption).foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12).padding(.bottom, 6)
-            }
-
-            Divider()
-
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(DiagnosticStage.allCases) { stage in
-                        healthRow(stage)
-                        Divider()
-                    }
-                }
-            }
-        }
-        .onAppear {
-            // Auto-run once when Diagnostics opens.
-            if !ranHealthOnce {
-                ranHealthOnce = true
-                Task { await diag.runAll() }
-            }
-        }
-    }
-
-    private func healthRow(_ stage: DiagnosticStage) -> some View {
-        let result = diag.results[stage]
-        let status = result?.status ?? .pending
-        return HStack(alignment: .top, spacing: 10) {
-            statusIcon(status).frame(width: 18)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(stage.title).font(.system(.body, design: .rounded)).fontWeight(.medium)
-                if let detail = result?.detail, !detail.isEmpty, detail != "…" {
-                    Text(detail).font(.caption).foregroundColor(.secondary)
-                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                }
-                if let fix = result?.remediation {
-                    Text(fix).font(.caption2).foregroundColor(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer()
-            if busyStage == stage {
-                if result?.fix == .downloadModel {
-                    ProgressView(value: downloadProgress).frame(width: 64)
-                } else {
-                    ProgressView().controlSize(.small)
-                }
-            } else if let fix = result?.fix {
-                Button(fixLabel(fix)) { performFix(stage, fix) }
-                    .controlSize(.small)
-                    .disabled(diag.isRunning || busyStage != nil)
-            }
-            Button {
-                Task { diag.results[stage] = await diag.run(stage) }
-            } label: {
-                Image(systemName: "arrow.clockwise").font(.caption2)
-            }
-            .buttonStyle(.plain).foregroundColor(.secondary)
-            .disabled(diag.isRunning || busyStage != nil)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-    }
-
-    private func fixLabel(_ kind: FixKind) -> String {
-        switch kind {
-        case .openAccessibility: return "Open Settings"
-        case .requestMic:        return "Grant"
-        case .downloadModel:     return "Download base"
-        case .installWhisper:    return "Install"
-        }
-    }
-
-    private func performFix(_ stage: DiagnosticStage, _ kind: FixKind) {
-        fixNote = nil
-        switch kind {
-        case .openAccessibility:
-            services.permissions.openAccessibilitySettings()
-            fixNote = "Toggle YOLOWhisp on in Accessibility, then re-run."
-            rerun(stage, after: 0.5)
-        case .requestMic:
-            Task {
-                _ = await services.permissions.requestMicrophonePermission()
-                diag.results[stage] = await diag.run(stage)
-            }
-        case .downloadModel:
-            busyStage = stage; downloadProgress = 0
-            Task {
-                do {
-                    let downloader = ModelDownloader()
-                    _ = try await downloader.download(model: "base") { p in
-                        Task { @MainActor in downloadProgress = p }
-                    }
-                    // Load the freshly-downloaded model into the shared manager.
-                    let models = services.modelManager.availableModels()
-                    if let m = models.first(where: { $0.name == "base" }) ?? models.first {
-                        try? services.modelManager.loadModel(m)
-                    }
-                    fixNote = "Downloaded base model."
-                } catch {
-                    AppLog.error("Model download failed: \(error)")
-                    fixNote = "Download failed — see Logs."
-                }
-                busyStage = nil
-                diag.results[.modelLoaded] = await diag.run(.modelLoaded)
-                diag.results[.endToEnd] = await diag.run(.endToEnd)
-            }
-        case .installWhisper:
-            let candidates = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
-            guard let brew = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString("brew install whisper-cpp", forType: .string)
-                fixNote = "Homebrew not found — copied “brew install whisper-cpp” to clipboard."
-                return
-            }
-            busyStage = stage
-            Task {
-                let runner = ProcessRunner(timeout: 600)
-                let result = try? runner.run(executablePath: brew, arguments: ["install", "whisper-cpp"])
-                AppLog.info("brew install whisper-cpp exit \(result?.exitCode ?? -1)")
-                fixNote = (result?.exitCode == 0) ? "Installed whisper-cpp." : "Install failed — run “brew install whisper-cpp” manually."
-                busyStage = nil
-                diag.results[stage] = await diag.run(stage)
-            }
-        }
-    }
-
-    private func rerun(_ stage: DiagnosticStage, after seconds: Double) {
-        Task {
-            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            diag.results[stage] = await diag.run(stage)
-        }
-    }
-
-    @ViewBuilder
-    private func statusIcon(_ status: CheckStatus) -> some View {
-        switch status {
-        case .ok:      Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-        case .warn:    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-        case .fail:    Image(systemName: "xmark.circle.fill").foregroundColor(.red)
-        case .running: ProgressView().controlSize(.small)
-        case .skipped: Image(systemName: "minus.circle").foregroundColor(.secondary)
-        case .pending: Image(systemName: "circle").foregroundColor(.secondary.opacity(0.4))
-        }
     }
 
     // MARK: - Logs Tab

@@ -87,9 +87,11 @@ struct YOLOWhispApp: App {
                 setupPostProcessor()
                 setupHotkey()
 
-                // Surface Diagnostics on launch if a critical prerequisite is
-                // missing, so the user isn't left with a silent failure.
-                if hasCompletedOnboarding {
+                // First run → guided Setup. Otherwise, surface Diagnostics if a
+                // critical prerequisite is missing so it's not a silent failure.
+                if !hasCompletedOnboarding {
+                    openSetupWindow()
+                } else {
                     let missingWhisper = !FileManager.default.fileExists(atPath: WhisperEngine.defaultWhisperPath)
                     let missingModel = Self.sharedModelManager.currentModel == nil
                     let missingMic = !PermissionManager().checkMicrophonePermission()
@@ -166,11 +168,6 @@ struct YOLOWhispApp: App {
         .onChange(of: aiProvider) { _, _ in setupDualOpinion(); setupPostProcessor() }
         .onChange(of: aiModelName) { _, _ in setupDualOpinion(); setupPostProcessor() }
         .onChange(of: aiApiKey) { _, _ in setupDualOpinion(); setupPostProcessor() }
-
-        Window("Onboarding", id: "onboarding") {
-            OnboardingView(permissionChecker: PermissionManager())
-        }
-        .windowResizability(.contentSize)
     }
 
     private func setupHotkey() {
@@ -354,6 +351,14 @@ struct YOLOWhispApp: App {
         )
     }
 
+    private func openSetupWindow() {
+        let services = makeServices()
+        windowStore.show(.setup, title: "Welcome to YOLOWhisp",
+                         size: NSSize(width: 600, height: 640), resizable: false) {
+            NSHostingView(rootView: SetupView(services: services, onDone: { windowStore.close(.setup) }))
+        }
+    }
+
     private func openDiagnosticsWindow() {
         let services = makeServices()
         windowStore.show(.diagnostics, title: "YOLOWhisp Diagnostics",
@@ -383,8 +388,12 @@ struct YOLOWhispApp: App {
 /// window closed. Here windows are kept alive, not released on close, and
 /// reused so repeated menu clicks don't stack duplicates.
 final class AppWindowStore {
-    enum Kind { case diagnostics, settings, history }
+    enum Kind { case diagnostics, settings, history, setup }
     private var windows: [Kind: NSWindow] = [:]
+
+    func close(_ kind: Kind) {
+        windows[kind]?.close()
+    }
 
     func show(_ kind: Kind, title: String, size: NSSize, resizable: Bool, makeContent: () -> NSView) {
         if let existing = windows[kind] {
