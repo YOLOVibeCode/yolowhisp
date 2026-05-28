@@ -25,6 +25,15 @@ make clean
 
 `CONFIG=release make app` produces an optimized bundle.
 
+### Self-contained "complete" build
+
+`make complete` builds a fully self-contained `build/YOLOWhisp-complete.app` —
+a `whisper-cli` compiled from source (whisper.cpp v1.8.4) with backends
+statically linked and the Metal shader embedded, plus a bundled model. It
+depends only on system frameworks (no Homebrew, no model download). Needs
+`cmake` (`brew install cmake`); Apple-Silicon only. CI ships it as
+`YOLOWhisp-<v>-complete-macOS.zip` alongside the lean universal build.
+
 ### Why the .app bundle matters
 
 YOLOWhisp is a menu-bar (`LSUIElement`) app that needs **Microphone** and
