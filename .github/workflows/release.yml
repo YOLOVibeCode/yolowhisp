@@ -135,11 +135,40 @@ jobs:
           xcrun stapler staple dist/YOLOWhisp.app
           xcrun stapler validate dist/YOLOWhisp.app
 
+      # Self-contained build: static whisper-cli from source + bundled model.
+      # Apple-Silicon only. Gated on signing secrets (needs Developer ID).
+      - name: Build complete (self-contained) app
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          SIGN_IDENTITY: "${{ secrets.MACOS_SIGN_IDENTITY || 'Developer ID Application: NoctuSoft, Inc. (N42FM5L5KD)' }}"
+        run: |
+          set -euo pipefail
+          CODESIGN_IDENTITY="$SIGN_IDENTITY" MODEL=base WHISPER_REF=v1.8.4 ./scripts/build-complete-app.sh release
+          cp -R build/YOLOWhisp-complete.app dist/YOLOWhisp-complete.app
+
+      - name: Notarize complete app
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          ditto -c -k --keepParent dist/YOLOWhisp-complete.app "$RUNNER_TEMP/complete.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/complete.zip" \
+            --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple dist/YOLOWhisp-complete.app
+          xcrun stapler validate dist/YOLOWhisp-complete.app
+
       - name: Package artifacts
         run: |
           cd dist
           # Zip the app bundle
           ditto -c -k --keepParent YOLOWhisp.app YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip
+          # Self-contained app (present only when signed)
+          if [ -d YOLOWhisp-complete.app ]; then
+            ditto -c -k --keepParent YOLOWhisp-complete.app YOLOWhisp-${{ steps.version.outputs.VERSION }}-complete-macOS.zip
+          fi
           # Also provide standalone binary
           tar czf YOLOWhisp-${{ steps.version.outputs.VERSION }}-binary.tar.gz YOLOWhisp
           # Checksums
@@ -165,15 +194,16 @@ jobs:
 
           | File | Description |
           |------|-------------|
-          | \`YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip\` | macOS app bundle (drag to /Applications) |
+          | \`YOLOWhisp-${{ steps.version.outputs.VERSION }}-complete-macOS.zip\` | **Self-contained** (Apple Silicon) — whisper + a model bundled. Just grant permissions. |
+          | \`YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip\` | Lean app bundle (universal). Needs whisper-cpp + a model — the in-app Setup downloads them. |
           | \`YOLOWhisp-${{ steps.version.outputs.VERSION }}-binary.tar.gz\` | Standalone universal binary |
 
-          ### Prerequisites
+          ### Lean build prerequisites (the complete build needs none)
+          The app's first-run Setup can install these for you, or manually:
           \`\`\`bash
           brew install whisper-cpp
-          # Download a model (small recommended):
-          curl -L -o ~/.local/share/whisper/ggml-small.bin \\
-            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+          curl -L -o ~/.local/share/whisper/ggml-base.bin \\
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
           \`\`\`
 
           ### Changes
@@ -190,6 +220,7 @@ jobs:
         with:
           body_path: release_notes.md
           files: |
+            dist/YOLOWhisp-${{ steps.version.outputs.VERSION }}-complete-macOS.zip
             dist/YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip
             dist/YOLOWhisp-${{ steps.version.outputs.VERSION }}-binary.tar.gz
             dist/checksums.txt
