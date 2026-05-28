@@ -38,6 +38,13 @@ rm -rf "$APP_DIR"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 cp "$BIN_PATH" "$CONTENTS/MacOS/$APP_NAME"
 
+# Copy the SwiftPM resource bundle (Bundle.module) so bundled resources
+# (e.g. the Diagnostics self-test WAV) resolve inside the .app.
+BUNDLE_SRC="$(dirname "$BIN_PATH")/${APP_NAME}_${APP_NAME}.bundle"
+if [[ -d "$BUNDLE_SRC" ]]; then
+  cp -R "$BUNDLE_SRC" "$CONTENTS/Resources/"
+fi
+
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

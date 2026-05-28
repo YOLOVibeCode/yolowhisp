@@ -9,7 +9,11 @@ public enum WhisperError: Error, Equatable {
 }
 
 public final class WhisperEngine: Transcribing {
-    private let whisperPath: String
+    /// Default whisper-cli location (Apple-Silicon Homebrew). Shared so the
+    /// app and Diagnostics check the same path.
+    public static let defaultWhisperPath = "/opt/homebrew/bin/whisper-cli"
+
+    public let whisperPath: String
     private let modelManager: ModelManaging
     private let processRunner: ProcessRunning
 
@@ -19,7 +23,7 @@ public final class WhisperEngine: Transcribing {
     public var initialPrompt: String? = "Hello, how are you? I'm doing great! That's wonderful. Let's meet at 3:30 PM. Don't forget — it's urgent!"
 
     public init(
-        whisperPath: String = "/opt/homebrew/bin/whisper-cli",
+        whisperPath: String = WhisperEngine.defaultWhisperPath,
         modelManager: ModelManaging,
         processRunner: ProcessRunning = ProcessRunner()
     ) {

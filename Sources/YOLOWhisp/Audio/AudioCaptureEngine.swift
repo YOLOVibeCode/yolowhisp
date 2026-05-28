@@ -220,6 +220,28 @@ public final class AudioCaptureEngine: AudioCapturing {
         return status == noErr ? dev : nil
     }
 
+    /// The system's current default input device.
+    static func defaultInputDeviceID() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dev: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &dev
+        )
+        return (status == noErr && dev != 0) ? dev : nil
+    }
+
+    /// The input device this engine will capture from: the explicit selection,
+    /// or the system default. For diagnostics / UI display.
+    public func currentInputDevice() -> (id: AudioDeviceID, name: String)? {
+        guard let id = deviceID ?? Self.defaultInputDeviceID() else { return nil }
+        return (id, Self.deviceName(id) ?? "Unknown device")
+    }
+
     /// Human-readable name for a CoreAudio device ID.
     static func deviceName(_ id: AudioDeviceID) -> String? {
         var address = AudioObjectPropertyAddress(

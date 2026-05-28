@@ -2,6 +2,10 @@ import SwiftUI
 import CoreAudio
 
 struct SettingsView: View {
+    /// Opens the Diagnostics window via the app's shared AppWindowStore
+    /// (injected so it doesn't create an unretained window that crashes on close).
+    var openDiagnostics: () -> Void = {}
+
     @AppStorage("outputMode") private var outputMode: String = OutputMode.simulatedKeystrokes.rawValue
     @AppStorage("whisperModel") private var whisperModel: String = "base"
     @AppStorage("aiPolishEnabled") private var aiPolishEnabled: Bool = false
@@ -12,8 +16,6 @@ struct SettingsView: View {
     @AppStorage("aiModelName") private var aiModelName: String = ""
     @AppStorage("aiApiKey") private var aiApiKey: String = ""
     @AppStorage("retentionDays") private var retentionDays: Int = 30
-    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 179
-    @AppStorage("hotkeyModifiers") private var hotkeyModifiers: Int = 0
     @AppStorage("hotkeys") private var hotkeysJSON: String = StoredHotkey.encode([StoredHotkey()])
     @State private var hotkeys: [StoredHotkey] = []
     @AppStorage("selectedMicrophoneID") private var selectedMicrophoneID: Int = 0
@@ -213,22 +215,6 @@ struct SettingsView: View {
         .onDisappear {
             stopMicTest()
         }
-    }
-
-    // MARK: - Diagnostics
-
-    private func openDiagnostics() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 460),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "YOLOWhisp Diagnostics"
-        window.contentView = NSHostingView(rootView: DiagnosticsView())
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - Mic Test

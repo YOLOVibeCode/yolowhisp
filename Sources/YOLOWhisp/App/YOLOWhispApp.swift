@@ -305,17 +305,55 @@ struct YOLOWhispApp: App {
         return inputDevices
     }
 
+    /// Bundle the REAL shared components so Diagnostics observes/exercises them.
+    private func makeServices() -> AppServices {
+        AppServices(
+            controller: controller,
+            audioCapture: Self.sharedAudioCapture,
+            modelManager: Self.sharedModelManager,
+            hotkeyManager: hotkeyManager,
+            aiConfigProvider: { Self.currentAIConfig() }
+        )
+    }
+
+    /// Current AI provider config when polish/dual-AI is enabled, else nil.
+    static func currentAIConfig() -> PostProcessorConfig? {
+        let d = UserDefaults.standard
+        let polish = d.bool(forKey: "aiPolishEnabled")
+        let dual = d.bool(forKey: "dualOpinionEnabled")
+        let method = d.string(forKey: "dualMergeMethod") ?? "ai"
+        guard polish || (dual && method == "ai") else { return nil }
+        let providerType = ProviderType(rawValue: d.string(forKey: "aiProvider") ?? "ollama") ?? .ollama
+        let endpoint: String
+        switch providerType {
+        case .ollama: endpoint = "http://localhost:11434/api/generate"
+        case .openai: endpoint = "https://api.openai.com/v1/chat/completions"
+        case .anthropic: endpoint = "https://api.anthropic.com/v1/messages"
+        case .custom: endpoint = ""
+        }
+        let model = d.string(forKey: "aiModelName") ?? ""
+        let key = d.string(forKey: "aiApiKey") ?? ""
+        return PostProcessorConfig(
+            providerType: providerType,
+            modelName: model.isEmpty ? "llama3.2" : model,
+            endpoint: endpoint,
+            apiKey: key.isEmpty ? nil : key,
+            customPrompt: DualOpinionPolisher.singlePolishPrompt
+        )
+    }
+
     private func openDiagnosticsWindow() {
+        let services = makeServices()
         windowStore.show(.diagnostics, title: "YOLOWhisp Diagnostics",
-                         size: NSSize(width: 520, height: 460), resizable: true) {
-            NSHostingView(rootView: DiagnosticsView())
+                         size: NSSize(width: 560, height: 480), resizable: true) {
+            NSHostingView(rootView: DiagnosticsView(services: services))
         }
     }
 
     private func openSettingsWindow() {
         windowStore.show(.settings, title: "YOLOWhisp Settings",
                          size: NSSize(width: 450, height: 500), resizable: false) {
-            NSHostingView(rootView: SettingsView())
+            NSHostingView(rootView: SettingsView(openDiagnostics: { openDiagnosticsWindow() }))
         }
     }
 

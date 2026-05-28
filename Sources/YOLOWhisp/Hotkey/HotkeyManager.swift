@@ -9,6 +9,11 @@ public final class HotkeyManager: HotkeyListening {
     public var registeredCount: Int { handlers.count }
     public var keyUpHandlerCount: Int { keyUpHandlers.count }
 
+    /// Observation hook: invoked whenever a registered hotkey fires, with the
+    /// matched config and whether it was the key-down (true) or key-up (false).
+    /// Lets Diagnostics watch REAL hotkey firing without re-implementing matching.
+    public var onTrigger: ((HotkeyConfig, Bool) -> Void)?
+
     /// Tracks which flagsChanged keys are currently pressed to detect press vs release
     private var pressedFlagKeys: Set<UInt16> = []
 
@@ -65,9 +70,11 @@ public final class HotkeyManager: HotkeyListening {
             if config.keyCode == KeyCodeMap.globeKeyCode && event.type == .flagsChanged && keyCode == KeyCodeMap.fnPhysicalKeyCode {
                 if KeyCodeMap.isGlobeKeyEvent(event) && !pressedFlagKeys.contains(keyCode) {
                     pressedFlagKeys.insert(keyCode)
+                    onTrigger?(config, true)
                     handler()
                 } else if KeyCodeMap.isGlobeKeyRelease(event) && pressedFlagKeys.contains(keyCode) {
                     pressedFlagKeys.remove(keyCode)
+                    onTrigger?(config, false)
                     keyUpHandlers[config]?()
                 }
                 return
@@ -79,9 +86,11 @@ public final class HotkeyManager: HotkeyListening {
                     let isPress = isFlagKeyPressed(keyCode, event: event)
                     if isPress && !pressedFlagKeys.contains(keyCode) {
                         pressedFlagKeys.insert(keyCode)
+                        onTrigger?(config, true)
                         handler()
                     } else if !isPress && pressedFlagKeys.contains(keyCode) {
                         pressedFlagKeys.remove(keyCode)
+                        onTrigger?(config, false)
                         keyUpHandlers[config]?()
                     }
                     return
@@ -91,8 +100,10 @@ public final class HotkeyManager: HotkeyListening {
             // --- Regular keys ---
             if config.keyCode == keyCode && config.modifiers == UInt(modifiers) {
                 if event.type == .keyDown {
+                    onTrigger?(config, true)
                     handler()
                 } else if event.type == .keyUp {
+                    onTrigger?(config, false)
                     keyUpHandlers[config]?()
                 }
             }

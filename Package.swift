@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "YOLOWhisp",
-            path: "Sources/YOLOWhisp"
+            path: "Sources/YOLOWhisp",
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "YOLOWhispTests",

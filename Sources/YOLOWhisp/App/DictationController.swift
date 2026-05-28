@@ -25,6 +25,21 @@ public final class DictationController: ObservableObject {
     public var consensusStrategy: (any ConsensusStrategy)?
 
     @Published public private(set) var isActive: Bool = false
+
+    /// Summary of the most recent dictation run, for the Diagnostics view to
+    /// show what the REAL pipeline last produced (or why it failed).
+    public struct LastRunInfo {
+        public let timestamp: Date
+        public let rawText: String
+        public let finalText: String
+        public let modelsUsed: String
+        public let duration: TimeInterval
+        public let audioBytes: Int
+        public let outputMode: OutputMode
+        public let error: String?
+    }
+    @Published public private(set) var lastRunInfo: LastRunInfo?
+
     public var outputMode: OutputMode = .simulatedKeystrokes
     public var postProcessEnabled: Bool = false
     public var frontmostAppProvider: () -> String? = { NSWorkspace.shared.frontmostApplication?.localizedName }
@@ -57,8 +72,15 @@ public final class DictationController: ObservableObject {
         guard isActive else { return }
         let targetApp = frontmostAppProvider()
         let audioData = audioCapture.stopCapture()
+        let audioBytes = audioData.count
+        let started = Date()
         SoundFeedback.shared.playStop()
         pill.setState(.processing)
+
+        var rawText = ""
+        var finalText = ""
+        var modelsUsed = ""
+        var runError: String?
 
         do {
             // Run transcription — dual model if second transcriber is set
@@ -76,9 +98,10 @@ public final class DictationController: ObservableObject {
             }
 
             let primaryResult = candidates[0]
-            var finalText = primaryResult.text
+            finalText = primaryResult.text
+            rawText = candidates.map(\.text).joined(separator: " | ")
+            modelsUsed = candidates.map(\.modelUsed).joined(separator: "+")
             var processedText: String? = nil
-            let modelsUsed = candidates.map(\.modelUsed).joined(separator: "+")
 
             // Dual opinion merge (AI), offline consensus vote, or single polish
             if let polisher = dualOpinionPolisher, candidates.count > 1 {
@@ -97,7 +120,7 @@ public final class DictationController: ObservableObject {
             try await textOutputManager.output(text: finalText, mode: outputMode)
 
             let entry = HistoryEntry(
-                rawText: candidates.map(\.text).joined(separator: " | "),
+                rawText: rawText,
                 processedText: processedText,
                 duration: primaryResult.duration,
                 modelUsed: modelsUsed,
@@ -105,9 +128,20 @@ public final class DictationController: ObservableObject {
             )
             try historyStore.save(entry: entry)
         } catch {
+            runError = "\(error)"
             AppLog.error("Dictation pipeline failed: \(error)")
         }
 
+        lastRunInfo = LastRunInfo(
+            timestamp: Date(),
+            rawText: rawText,
+            finalText: finalText,
+            modelsUsed: modelsUsed,
+            duration: Date().timeIntervalSince(started),
+            audioBytes: audioBytes,
+            outputMode: outputMode,
+            error: runError
+        )
         pill.setState(.idle)
         isActive = false
     }

@@ -75,6 +75,10 @@ jobs:
 
           cp dist/YOLOWhisp "$APP_DIR/MacOS/YOLOWhisp"
 
+          # Bundle.module resources (Diagnostics self-test WAV)
+          BUNDLE_SRC="$(swift build -c release --arch arm64 --show-bin-path)/YOLOWhisp_YOLOWhisp.bundle"
+          if [ -d "$BUNDLE_SRC" ]; then cp -R "$BUNDLE_SRC" "$APP_DIR/Resources/"; fi
+
           cat > "$APP_DIR/Info.plist" << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
