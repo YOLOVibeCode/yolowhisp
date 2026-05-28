@@ -19,6 +19,27 @@ final class IntegrationTests: XCTestCase {
         )
     }
 
+    /// Raw 16kHz mono PCM extracted from a bundled LibriSpeech sample WAV.
+    /// Returns nil if the sample isn't present (it's gitignored, so absent in CI).
+    private func sampleSpeechPCM() -> Data? {
+        // .../Tests/YOLOWhispTests/IntegrationTests.swift -> repo root
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let wav = repoRoot.appendingPathComponent("benchmark/wav_samples/61-70970-0000.wav")
+        guard FileManager.default.fileExists(atPath: wav.path),
+              let data = try? Data(contentsOf: wav) else { return nil }
+        return Self.pcm(fromWAV: data)
+    }
+
+    /// Strip the WAV container down to the raw PCM payload by locating the
+    /// `data` subchunk (robust to header size / extra chunks).
+    private static func pcm(fromWAV data: Data) -> Data? {
+        guard let r = data.range(of: Data("data".utf8)) else { return nil }
+        let start = r.upperBound + 4 // skip the 4-byte chunk-size field
+        guard start <= data.count else { return nil }
+        return data.subdata(in: start..<data.count)
+    }
+
     // MARK: - Full Pipeline Test
 
     func testFullPipelineWithSyntheticAudio() async throws {
@@ -59,6 +80,54 @@ final class IntegrationTests: XCTestCase {
         let entries = try store.entries(limit: 10)
         XCTAssertEqual(entries.count, 1)
         XCTAssertEqual(entries[0].rawText, result.text)
+    }
+
+    // MARK: - Real Speech End-to-End (headless: no GUI, no mic, no keystrokes)
+
+    /// Drives the WHOLE pipeline on real recorded speech: a bundled WAV is fed
+    /// in as the audio source, transcribed by the real whisper-cli engine, and
+    /// the output is captured by an in-test sink (no actual keystrokes). Proves
+    /// dictation works without launching the app or touching the session.
+    func testRealSpeechEndToEndThroughController() async throws {
+        try skipIfNoWhisper()
+        guard let pcm = sampleSpeechPCM() else {
+            throw XCTSkip("sample WAV not present (gitignored)")
+        }
+
+        let modelManager = ModelManager() // default search paths (~/.local/share/whisper, ...)
+        let models = modelManager.availableModels()
+        try XCTSkipIf(models.isEmpty, "no whisper models installed")
+        try modelManager.loadModel(models.sorted { $0.size < $1.size }.first!) // smallest = fastest
+
+        let engine = WhisperEngine(whisperPath: whisperPath, modelManager: modelManager)
+        let audio = FileAudioCapture(pcm: pcm)
+        let sink = CapturingTextOutput()
+        let outputManager = TextOutputManager(outputs: [.simulatedKeystrokes: sink])
+        let history = HistoryStore() // in-memory
+        let pill = MockIntegrationPill()
+
+        let controller = DictationController(
+            audioCapture: audio,
+            transcriber: engine,
+            textOutputManager: outputManager,
+            historyStore: history,
+            pill: pill
+        )
+        controller.outputMode = .simulatedKeystrokes
+
+        controller.startDictation()
+        await controller.stopDictation()
+
+        let typed = sink.captured.joined(separator: " ").lowercased()
+        XCTAssertFalse(typed.isEmpty, "expected a non-empty transcription")
+        // Distinctive words from this clip; robust across models/punctuation/case.
+        XCTAssertTrue(typed.contains("commanded"), "transcript was: \(typed)")
+        XCTAssertTrue(typed.contains("squire"), "transcript was: \(typed)")
+
+        let entries = try history.entries(limit: 5)
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertTrue(entries[0].rawText.lowercased().contains("squire"))
+        XCTAssertEqual(pill.stateHistory, [.recording, .processing, .idle])
     }
 
     // MARK: - Model Manager Integration
@@ -199,4 +268,24 @@ private final class MockIntegrationPill: PillDisplaying {
     func show() {}
     func hide() {}
     func setState(_ state: PillState) { stateHistory.append(state) }
+}
+
+/// Audio source that replays fixed PCM from a file instead of the mic.
+private final class FileAudioCapture: AudioCapturing {
+    var isCapturing = false
+    private let pcm: Data
+    init(pcm: Data) { self.pcm = pcm }
+    func startCapture() { isCapturing = true }
+    func stopCapture() -> Data {
+        isCapturing = false
+        return pcm
+    }
+}
+
+/// Output sink that records what would have been typed — no real keystrokes,
+/// so the test never touches the foreground app or clipboard.
+private final class CapturingTextOutput: TextOutputting {
+    let mode: OutputMode = .simulatedKeystrokes
+    private(set) var captured: [String] = []
+    func output(text: String) async throws { captured.append(text) }
 }
