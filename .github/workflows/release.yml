@@ -144,7 +144,10 @@ jobs:
         run: |
           set -euo pipefail
           CODESIGN_IDENTITY="$SIGN_IDENTITY" MODEL=base WHISPER_REF=v1.8.4 ./scripts/build-complete-app.sh release
-          cp -R build/YOLOWhisp-complete.app dist/YOLOWhisp-complete.app
+          # Stage under a subdir so the bundle installs as "YOLOWhisp.app"
+          # (not YOLOWhisp-complete.app) without colliding with the lean build.
+          mkdir -p dist/complete
+          cp -R build/YOLOWhisp-complete.app dist/complete/YOLOWhisp.app
 
       - name: Notarize complete app
         if: steps.signing.outputs.enabled == 'true'
@@ -154,20 +157,20 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          ditto -c -k --keepParent dist/YOLOWhisp-complete.app "$RUNNER_TEMP/complete.zip"
+          ditto -c -k --keepParent dist/complete/YOLOWhisp.app "$RUNNER_TEMP/complete.zip"
           xcrun notarytool submit "$RUNNER_TEMP/complete.zip" \
             --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
-          xcrun stapler staple dist/YOLOWhisp-complete.app
-          xcrun stapler validate dist/YOLOWhisp-complete.app
+          xcrun stapler staple dist/complete/YOLOWhisp.app
+          xcrun stapler validate dist/complete/YOLOWhisp.app
 
       - name: Package artifacts
         run: |
           cd dist
           # Zip the app bundle
           ditto -c -k --keepParent YOLOWhisp.app YOLOWhisp-${{ steps.version.outputs.VERSION }}-macOS.zip
-          # Self-contained app (present only when signed)
-          if [ -d YOLOWhisp-complete.app ]; then
-            ditto -c -k --keepParent YOLOWhisp-complete.app YOLOWhisp-${{ steps.version.outputs.VERSION }}-complete-macOS.zip
+          # Self-contained app (present only when signed) — installs as YOLOWhisp.app
+          if [ -d complete/YOLOWhisp.app ]; then
+            ditto -c -k --keepParent complete/YOLOWhisp.app YOLOWhisp-${{ steps.version.outputs.VERSION }}-complete-macOS.zip
           fi
           # Also provide standalone binary
           tar czf YOLOWhisp-${{ steps.version.outputs.VERSION }}-binary.tar.gz YOLOWhisp

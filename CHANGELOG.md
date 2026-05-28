@@ -2,6 +2,12 @@
 
 All notable changes to YOLOWhisp. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.3] - 2026-05-28
+
+### Fixed
+- The self-contained "complete" download now installs as `YOLOWhisp.app` (was
+  `YOLOWhisp-complete.app`).
+
 ## [0.2.2] - 2026-05-28
 
 ### Added
@@ -55,6 +61,7 @@ All notable changes to YOLOWhisp. Format based on [Keep a Changelog](https://kee
 
 - Initial release: local whisper-cpp dictation, floating pill, hotkeys, history.
 
+[0.2.3]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.3
 [0.2.2]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.2
 [0.2.1]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.1
 [0.2.0]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.0
