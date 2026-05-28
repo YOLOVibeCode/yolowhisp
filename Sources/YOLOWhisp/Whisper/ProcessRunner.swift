@@ -1,7 +1,7 @@
 import Foundation
 
 public protocol ProcessRunning {
-    func run(executablePath: String, arguments: [String]) throws -> (stdout: String, stderr: String, exitCode: Int32)
+    func run(executablePath: String, arguments: [String], environment: [String: String]?) throws -> (stdout: String, stderr: String, exitCode: Int32)
 }
 
 public final class ProcessRunner: ProcessRunning {
@@ -13,7 +13,7 @@ public final class ProcessRunner: ProcessRunning {
         self.timeout = timeout
     }
 
-    public func run(executablePath: String, arguments: [String]) throws -> (stdout: String, stderr: String, exitCode: Int32) {
+    public func run(executablePath: String, arguments: [String], environment: [String: String]? = nil) throws -> (stdout: String, stderr: String, exitCode: Int32) {
         guard FileManager.default.fileExists(atPath: executablePath) else {
             throw WhisperError.whisperNotFound
         }
@@ -21,6 +21,12 @@ public final class ProcessRunner: ProcessRunning {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
+        if let environment {
+            // Preserve the inherited environment, overlay the extras (e.g. GGML_BACKEND_PATH).
+            var env = ProcessInfo.processInfo.environment
+            for (key, value) in environment { env[key] = value }
+            process.environment = env
+        }
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()

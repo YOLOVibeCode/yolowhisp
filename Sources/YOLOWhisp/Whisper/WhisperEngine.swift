@@ -13,6 +13,16 @@ public final class WhisperEngine: Transcribing {
     /// app and Diagnostics check the same path.
     public static let defaultWhisperPath = "/opt/homebrew/bin/whisper-cli"
 
+    /// Prefer a whisper-cli bundled inside the app (the "complete" build at
+    /// Contents/Resources/whisper/bin/whisper-cli); fall back to Homebrew.
+    public static var resolvedWhisperPath: String {
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("whisper/bin/whisper-cli"),
+           FileManager.default.isExecutableFile(atPath: url.path) {
+            return url.path
+        }
+        return defaultWhisperPath
+    }
+
     public let whisperPath: String
     private let modelManager: ModelManaging
     private let processRunner: ProcessRunning
@@ -57,7 +67,8 @@ public final class WhisperEngine: Transcribing {
         }
         let result = try processRunner.run(
             executablePath: whisperPath,
-            arguments: args
+            arguments: args,
+            environment: Self.ggmlEnvironment(for: whisperPath)
         )
 
         guard result.exitCode == 0 else {
@@ -68,6 +79,19 @@ public final class WhisperEngine: Transcribing {
         let duration = Date().timeIntervalSince(start)
 
         return TranscriptionResult(text: text, duration: duration, modelUsed: model.name)
+    }
+
+    /// When running a BUNDLED whisper-cli, ggml finds its dlopen'd backends via
+    /// the GGML_BACKEND_PATH env var pointing at the sibling libexec dir. For a
+    /// Homebrew whisper-cli (no bundled libexec of .so backends), returns nil so
+    /// ggml uses its own discovery.
+    static func ggmlEnvironment(for whisperPath: String) -> [String: String]? {
+        let binDir = (whisperPath as NSString).deletingLastPathComponent      // .../whisper/bin
+        let whisperRoot = (binDir as NSString).deletingLastPathComponent      // .../whisper
+        let libexec = whisperRoot + "/libexec"
+        let hasBackends = (try? FileManager.default.contentsOfDirectory(atPath: libexec)
+            .contains { $0.hasSuffix(".so") }) ?? false
+        return hasBackends ? ["GGML_BACKEND_PATH": libexec] : nil
     }
 
     static func parseOutput(_ stdout: String) -> String {

@@ -6,11 +6,16 @@ public final class ModelManager: ModelManaging {
 
     public init(searchPaths: [String] = []) {
         if searchPaths.isEmpty {
-            self.searchPaths = [
+            var paths = [
                 NSHomeDirectory() + "/.local/share/whisper",
                 "/usr/local/share/whisper",
                 "/opt/homebrew/share/whisper",
             ]
+            // The "complete" build bundles a model here.
+            if let bundled = Bundle.main.resourceURL?.appendingPathComponent("whisper/models").path {
+                paths.append(bundled)
+            }
+            self.searchPaths = paths
         } else {
             self.searchPaths = searchPaths
         }

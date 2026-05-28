@@ -4,12 +4,14 @@ import XCTest
 final class MockProcessRunner: ProcessRunning {
     var lastExecutablePath: String?
     var lastArguments: [String]?
+    var lastEnvironment: [String: String]?
     var stubbedResult: (stdout: String, stderr: String, exitCode: Int32) = ("", "", 0)
     var shouldThrow: Error?
 
-    func run(executablePath: String, arguments: [String]) throws -> (stdout: String, stderr: String, exitCode: Int32) {
+    func run(executablePath: String, arguments: [String], environment: [String: String]?) throws -> (stdout: String, stderr: String, exitCode: Int32) {
         lastExecutablePath = executablePath
         lastArguments = arguments
+        lastEnvironment = environment
         if let error = shouldThrow { throw error }
         return stubbedResult
     }

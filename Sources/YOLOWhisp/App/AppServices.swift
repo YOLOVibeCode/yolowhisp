@@ -21,7 +21,7 @@ final class AppServices {
         modelManager: ModelManager,
         hotkeyManager: HotkeyManager,
         permissions: any PermissionChecking = PermissionManager(),
-        whisperPath: String = WhisperEngine.defaultWhisperPath,
+        whisperPath: String = WhisperEngine.resolvedWhisperPath,
         sampleProvider: @escaping () -> Data? = { DiagnosticsSamples.selfTestPCM() },
         aiConfigProvider: @escaping () -> PostProcessorConfig? = { nil }
     ) {

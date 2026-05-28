@@ -13,7 +13,7 @@ struct YOLOWhispApp: App {
     @StateObject private var controller: DictationController = {
         let audioCapture = sharedAudioCapture
         let modelManager = sharedModelManager
-        let transcriber = WhisperEngine(modelManager: modelManager)
+        let transcriber = WhisperEngine(whisperPath: WhisperEngine.resolvedWhisperPath, modelManager: modelManager)
         let textOutputManager = TextOutputManager(outputs: [
             .clipboardPaste: ClipboardPaster(),
             .simulatedKeystrokes: KeystrokeTyper(),
@@ -130,6 +130,21 @@ struct YOLOWhispApp: App {
                 }
             }
             Divider()
+            Menu("Recent Captures") {
+                let recents = (try? historyStore.entries(limit: 5)) ?? []
+                if recents.isEmpty {
+                    Text("No captures yet").disabled(true)
+                } else {
+                    ForEach(recents) { entry in
+                        let text = entry.processedText ?? entry.rawText
+                        Button(menuLabel(for: entry)) {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(text, forType: .string)
+                        }
+                    }
+                }
+            }
+            Divider()
             Button("Diagnostics") {
                 openDiagnosticsWindow()
             }
@@ -218,7 +233,7 @@ struct YOLOWhispApp: App {
         let models = secondModelManager.availableModels()
         if let model = models.first(where: { $0.name == secondWhisperModel }) {
             try? secondModelManager.loadModel(model)
-            controller.secondTranscriber = WhisperEngine(modelManager: secondModelManager)
+            controller.secondTranscriber = WhisperEngine(whisperPath: WhisperEngine.resolvedWhisperPath, modelManager: secondModelManager)
         }
 
         // Choose how the two candidates get merged.
@@ -266,6 +281,15 @@ struct YOLOWhispApp: App {
 
     private func applyMicrophoneSelection() {
         Self.sharedAudioCapture.deviceID = selectedMicrophoneID == 0 ? nil : AudioDeviceID(selectedMicrophoneID)
+    }
+
+    private func menuLabel(for entry: HistoryEntry) -> String {
+        let raw = (entry.processedText ?? entry.rawText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        let snippet = raw.count > 50 ? String(raw.prefix(50)) + "..." : raw
+        let time = DateFormatter.localizedString(from: entry.timestamp, dateStyle: .none, timeStyle: .short)
+        return "\(time)  \(snippet)"
     }
 
     static func listInputDevices() -> [(id: AudioDeviceID, name: String)] {
