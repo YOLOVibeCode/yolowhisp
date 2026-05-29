@@ -2,6 +2,15 @@
 
 All notable changes to YOLOWhisp. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.4] - 2026-05-28
+
+### Fixed
+- **Crash in the Health Check / Setup** end-to-end stage: the bundled self-test
+  audio was loaded via `Bundle.module`, whose generated accessor calls
+  `fatalError()` when the resource bundle isn't a "proper" bundle in a packaged
+  `.app` — crashing the app. The WAV is now located defensively (no crash; the
+  stage is skipped if the file isn't found).
+
 ## [0.2.3] - 2026-05-28
 
 ### Fixed
@@ -61,6 +70,7 @@ All notable changes to YOLOWhisp. Format based on [Keep a Changelog](https://kee
 
 - Initial release: local whisper-cpp dictation, floating pill, hotkeys, history.
 
+[0.2.4]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.4
 [0.2.3]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.3
 [0.2.2]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.2
 [0.2.1]: https://github.com/YOLOVibeCode/yolowhisp/releases/tag/v0.2.1

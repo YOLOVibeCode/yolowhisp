@@ -33,10 +33,31 @@ final class NullPillDisplay: PillDisplaying {
 /// Bundled audio used by the end-to-end health check.
 enum DiagnosticsSamples {
     /// Raw 16kHz mono PCM from the bundled selftest.wav, or nil if unavailable.
+    /// Deliberately avoids `Bundle.module` — its generated accessor calls
+    /// fatalError() when the SPM resource bundle isn't a "proper" bundle (in a
+    /// packaged .app it's a flat dir), which would CRASH the app. Locate the
+    /// file defensively and return nil if it isn't found.
     static func selfTestPCM() -> Data? {
-        guard let url = Bundle.module.url(forResource: "selftest", withExtension: "wav"),
-              let data = try? Data(contentsOf: url) else { return nil }
-        return pcm(fromWAV: data)
+        for url in candidateURLs() where FileManager.default.fileExists(atPath: url.path) {
+            if let data = try? Data(contentsOf: url) { return pcm(fromWAV: data) }
+        }
+        return nil
+    }
+
+    private static func candidateURLs() -> [URL] {
+        var urls: [URL] = []
+        if let u = Bundle.main.url(forResource: "selftest", withExtension: "wav") { urls.append(u) }
+        guard let res = Bundle.main.resourceURL else { return urls }
+        urls.append(res.appendingPathComponent("selftest.wav"))
+        // SwiftPM resource bundles live as Resources/<Pkg>_<Target>.bundle and
+        // may be flat or have Contents/Resources depending on packaging.
+        if let items = try? FileManager.default.contentsOfDirectory(at: res, includingPropertiesForKeys: nil) {
+            for item in items where item.pathExtension == "bundle" {
+                urls.append(item.appendingPathComponent("selftest.wav"))
+                urls.append(item.appendingPathComponent("Contents/Resources/selftest.wav"))
+            }
+        }
+        return urls
     }
 
     /// Strip a WAV container to its raw PCM payload via the `data` subchunk.
