@@ -5,11 +5,13 @@ final class MockPermissionChecker: PermissionChecking {
     var micGranted = false
     var accessibilityGranted = false
     var requestMicCalled = false
+    var requestAccessibilityCalled = false
     var openAccessibilityCalled = false
 
     func checkMicrophonePermission() -> Bool { micGranted }
     func requestMicrophonePermission() async -> Bool { requestMicCalled = true; return micGranted }
     func checkAccessibilityPermission() -> Bool { accessibilityGranted }
+    func requestAccessibilityPermission() -> Bool { requestAccessibilityCalled = true; return accessibilityGranted }
     func openAccessibilitySettings() { openAccessibilityCalled = true }
 }
 

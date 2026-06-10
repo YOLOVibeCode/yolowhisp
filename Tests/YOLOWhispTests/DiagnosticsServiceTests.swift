@@ -10,6 +10,7 @@ final class DiagnosticsServiceTests: XCTestCase {
         func checkMicrophonePermission() -> Bool { mic }
         func requestMicrophonePermission() async -> Bool { mic }
         func checkAccessibilityPermission() -> Bool { ax }
+        func requestAccessibilityPermission() -> Bool { ax }
         func openAccessibilitySettings() {}
     }
 

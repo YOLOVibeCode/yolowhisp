@@ -12,7 +12,7 @@ public final class ModelDownloader: ModelDownloading {
     private var downloadTask: URLSessionDataTask?
     private let destinationDirectory: String
 
-    private static let models = ["tiny", "base", "small", "medium", "large"]
+    private static let models = ["tiny", "base", "small", "medium", "large", "large-v3-turbo"]
 
     public static func downloadURL(for model: String) -> URL {
         URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(model).bin")!

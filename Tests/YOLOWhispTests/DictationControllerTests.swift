@@ -143,6 +143,14 @@ final class DictationControllerTests: XCTestCase {
             postProcessor: postProcessor,
             pill: pill
         )
+        // Pin the frontmost-app providers to a known NON-remote app so these
+        // pipeline tests are deterministic. Otherwise the live
+        // NSWorkspace.frontmostApplication (e.g. an RDP client open on the dev's
+        // machine) would route output to the auto-detected remote mode, which
+        // isn't registered here. Remote routing is covered by RemoteSessionDetector
+        // and TextOutput tests.
+        controller.frontmostAppProvider = { "TextEdit" }
+        controller.frontmostBundleIdProvider = { "com.apple.TextEdit" }
     }
 
     func testStartDictationBeginsCapture() {
@@ -235,6 +243,8 @@ final class DictationControllerTests: XCTestCase {
             historyStore: historyStore,
             pill: pill
         )
+        bare.frontmostAppProvider = { "TextEdit" }
+        bare.frontmostBundleIdProvider = { "com.apple.TextEdit" }
         let late = MockPostProcessor()
         late.stubbedResult = "Injected."
         bare.postProcessor = late
@@ -256,6 +266,35 @@ final class DictationControllerTests: XCTestCase {
         await controller.stopDictation()
         XCTAssertEqual(textOutput.receivedText, "hello world")
         XCTAssertTrue(historyStore.saveCalled)
+        XCTAssertNotNil(controller.lastRunInfo?.error)
+    }
+
+    // Regression: a silent/empty transcription must NOT run AI polish, type,
+    // or save. Feeding empty text to a provider made it echo its system prompt,
+    // which then got typed out as garbage.
+    func testEmptyTranscriptionSkipsPolishOutputAndSave() async {
+        transcriber.stubbedResult = TranscriptionResult(text: "   ", duration: 0.2, modelUsed: "tiny")
+        controller.postProcessEnabled = true
+        controller.startDictation()
+        await controller.stopDictation()
+
+        XCTAssertFalse(postProcessor.processCalled, "polish must not run on empty text")
+        XCTAssertFalse(textOutput.outputCalled, "nothing should be typed")
+        XCTAssertFalse(historyStore.saveCalled, "nothing should be saved")
+        XCTAssertEqual(pill.stateHistory.last, .idle)
+        XCTAssertFalse(controller.isActive)
+    }
+
+    // Defense: if a polish provider echoes its instructions (empty after trim is
+    // the simplest case), fall back to the raw transcription rather than typing
+    // the model's noise.
+    func testPolishReturningEmptyFallsBackToRaw() async {
+        controller.postProcessEnabled = true
+        postProcessor.stubbedResult = "   "
+        controller.startDictation()
+        await controller.stopDictation()
+
+        XCTAssertEqual(textOutput.receivedText, "hello world")
         XCTAssertNotNil(controller.lastRunInfo?.error)
     }
 
@@ -289,6 +328,8 @@ final class DictationControllerTests: XCTestCase {
             historyStore: historyStore,
             pill: pill
         )
+        c.frontmostAppProvider = { "TextEdit" }
+        c.frontmostBundleIdProvider = { "com.apple.TextEdit" }
         c.secondTranscriber = second
         let pick = TranscriptionResult(text: "the chosen one", duration: 1.0, modelUsed: "small")
         let strategy = MockConsensusStrategy(stubbed: pick)

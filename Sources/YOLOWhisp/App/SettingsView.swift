@@ -7,7 +7,7 @@ struct SettingsView: View {
     var openDiagnostics: () -> Void = {}
 
     @AppStorage("outputMode") private var outputMode: String = OutputMode.simulatedKeystrokes.rawValue
-    @AppStorage("whisperModel") private var whisperModel: String = "base"
+    @AppStorage("whisperModel") private var whisperModel: String = "large-v3-turbo"
     @AppStorage("aiPolishEnabled") private var aiPolishEnabled: Bool = false
     @AppStorage("dualOpinionEnabled") private var dualOpinionEnabled: Bool = false
     @AppStorage("dualMergeMethod") private var dualMergeMethod: String = "ai"
@@ -22,6 +22,9 @@ struct SettingsView: View {
     @AppStorage("menuBarIcon") private var menuBarIconStyle: String = MenuBarIconStyle.whisperBubble.rawValue
     @AppStorage("soundStyle") private var soundStyle: String = SoundFeedback.SoundStyle.tinkPop.rawValue
     @AppStorage("typingSpeed") private var typingSpeed: String = TypingSpeed.medium.rawValue
+    @AppStorage("clipboardRestoreEnabled") private var clipboardRestoreEnabled: Bool = true
+    @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay: Double = 0.4
+    @AppStorage("autoSwitchRemoteTyping") private var autoSwitchRemoteTyping: Bool = true
 
     @State private var availableMicrophones: [(id: AudioDeviceID, name: String)] = []
     @State private var micTestLevel: Float = 0.0
@@ -111,11 +114,33 @@ struct SettingsView: View {
                     Text("Accessibility Insertion").tag(OutputMode.accessibilityInsertion.rawValue)
                 }
                 
+                Toggle("Auto-switch typing for remote sessions (RDP/VM)", isOn: $autoSwitchRemoteTyping)
+                Text("When enabled, automatically detects remote desktop and VM apps (Microsoft Remote Desktop, Parallels, VMware, etc.) and switches to hardware-faithful key-code typing for reliable input over remote connections.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
                 if outputMode == OutputMode.simulatedKeystrokes.rawValue {
                     Picker("Typing Speed", selection: $typingSpeed) {
                         ForEach(TypingSpeed.allCases, id: \.rawValue) { speed in
                             Text(speed.displayName).tag(speed.rawValue)
                         }
+                    }
+                }
+
+                if outputMode == OutputMode.clipboardPaste.rawValue {
+                    Toggle("Restore clipboard after paste", isOn: $clipboardRestoreEnabled)
+                    if clipboardRestoreEnabled {
+                        HStack {
+                            Text("Restore Delay")
+                            Slider(value: $clipboardRestoreDelay, in: 0.1...1.5, step: 0.1)
+                            Text(String(format: "%.1fs", clipboardRestoreDelay))
+                                .monospacedDigit()
+                                .foregroundColor(.secondary)
+                                .frame(width: 40, alignment: .trailing)
+                        }
+                        Text("Higher delays are safer in slower apps; lower delays restore your clipboard sooner.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -127,6 +152,7 @@ struct SettingsView: View {
                     Text("Small").tag("small")
                     Text("Medium").tag("medium")
                     Text("Large").tag("large")
+                    Text("Large v3 Turbo (most accurate)").tag("large-v3-turbo")
                 }
             }
 
@@ -139,6 +165,7 @@ struct SettingsView: View {
                         Text("Small").tag("small")
                         Text("Medium").tag("medium")
                         Text("Large").tag("large")
+                        Text("Large v3 Turbo").tag("large-v3-turbo")
                     }
                     Picker("Merge", selection: $dualMergeMethod) {
                         Text("AI merge").tag("ai")

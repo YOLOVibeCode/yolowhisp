@@ -26,7 +26,9 @@ complete:
 	./scripts/build-complete-app.sh $(CONFIG)
 
 # Build the bundle and launch it (menu-bar app — look for the icon up top).
-run: app
+# Uses app-signed so Developer ID signing is stable across rebuilds, keeping
+# TCC accessibility permissions intact between dev iterations.
+run: app-signed
 	open build/YOLOWhisp.app
 
 clean:

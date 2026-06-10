@@ -18,7 +18,10 @@ CONFIG="${1:-release}"
 APP_NAME="YOLOWhisp"
 BUNDLE_ID="com.noctusoft.yolowhisp"
 SIGN_IDENTITY="${CODESIGN_IDENTITY:--}"   # default ad-hoc for local testing
-MODEL="${MODEL:-base}"
+# Bundle the model the app defaults to (`large-v3-turbo`) so a fresh install
+# runs at full accuracy out of the box. Override with MODEL=base for a much
+# smaller (~150MB vs ~1.6GB) bundle that falls back gracefully.
+MODEL="${MODEL:-large-v3-turbo}"
 WHISPER_REF="${WHISPER_REF:-v1.8.4}"      # matches Homebrew's whisper-cpp 1.8.4
 MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${MODEL}.bin"
 

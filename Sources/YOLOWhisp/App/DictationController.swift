@@ -42,7 +42,9 @@ public final class DictationController: ObservableObject {
 
     public var outputMode: OutputMode = .simulatedKeystrokes
     public var postProcessEnabled: Bool = false
+    public var autoSwitchRemoteTyping: Bool = true
     public var frontmostAppProvider: () -> String? = { NSWorkspace.shared.frontmostApplication?.localizedName }
+    public var frontmostBundleIdProvider: () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
 
     public init(
         audioCapture: any AudioCapturing,
@@ -70,12 +72,17 @@ public final class DictationController: ObservableObject {
 
     public func stopDictation() async {
         guard isActive else { return }
-        let targetApp = frontmostAppProvider()
+        // Capture frontmost-app info and update UI on the main thread. NSWorkspace
+        // and the pill (NSPanel/NSHostingView) are not safe to touch off-main, and
+        // this method runs on Swift's cooperative pool (via `Task { await ... }`).
+        let (targetApp, bundleId): (String?, String?) = await MainActor.run {
+            (frontmostAppProvider(), frontmostBundleIdProvider())
+        }
         let audioData = audioCapture.stopCapture()
         let audioBytes = audioData.count
         let started = Date()
         SoundFeedback.shared.playStop()
-        pill.setState(.processing)
+        await MainActor.run { pill.setState(.processing) }
 
         var rawText = ""
         var finalText = ""
@@ -103,11 +110,17 @@ public final class DictationController: ObservableObject {
             modelsUsed = candidates.map(\.modelUsed).joined(separator: "+")
             var processedText: String? = nil
 
+            // Guard: if nothing intelligible was transcribed (silence / too
+            // short), do NOT run AI polish, type, or save. Feeding empty text to
+            // a polish provider makes the model echo its own system prompt,
+            // which would then be typed out — the cause of garbage output.
+            let hasText = !primaryResult.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
             // Optional enhancement: dual-opinion merge (AI), offline consensus
             // vote, or single-pass polish. These must NEVER drop the dictation —
             // if the optional step fails (e.g. AI provider 404), fall back to the
             // raw transcription and record the error, but still output + save.
-            if let polisher = dualOpinionPolisher, candidates.count > 1 {
+            if hasText, let polisher = dualOpinionPolisher, candidates.count > 1 {
                 do {
                     let merged = try await polisher.merge(candidates: candidates.map(\.text))
                     processedText = merged
@@ -116,36 +129,72 @@ public final class DictationController: ObservableObject {
                     runError = "merge failed (using primary): \(error)"
                     AppLog.error(runError!)
                 }
-            } else if let strategy = consensusStrategy, candidates.count > 1 {
+            } else if hasText, let strategy = consensusStrategy, candidates.count > 1 {
                 // Offline: pick the best candidate, no LLM involved.
                 finalText = strategy.selectBest(from: candidates).text
-            } else if postProcessEnabled, let processor = postProcessor {
+            } else if hasText, postProcessEnabled, let processor = postProcessor {
                 do {
                     let processed = try await processor.process(text: primaryResult.text)
-                    processedText = processed
-                    finalText = processed
+                    // Defend against a provider that echoes its instructions
+                    // instead of returning polished text: keep the raw text.
+                    let trimmed = processed.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty {
+                        runError = "AI polish returned empty (using raw transcription)"
+                        AppLog.error(runError!)
+                    } else {
+                        processedText = processed
+                        finalText = processed
+                    }
                 } catch {
                     runError = "AI polish failed (using raw transcription): \(error)"
                     AppLog.error(runError!)
                 }
             }
 
-            try await textOutputManager.output(text: finalText, mode: outputMode)
+            // Only type and persist when there is actual content.
+            if hasText {
+                // Auto-detect RDP/VM clients and route to key-code emulation + Ctrl+V paste fallback.
+                let effectiveMode: OutputMode
+                if autoSwitchRemoteTyping {
+                    let isRemote = RemoteSessionDetector.isRemote(bundleId: bundleId, name: targetApp)
+                    
+                    if isRemote {
+                        // Remote session detected: prefer key-code typing if text is fully mappable,
+                        // otherwise fall back to Ctrl+V clipboard paste.
+                        if KeystrokeTyper.isFullyMappable(finalText) {
+                            effectiveMode = .remoteKeystrokes
+                        } else {
+                            // Unmappable characters → clipboard paste with Ctrl+V for Windows
+                            effectiveMode = .remoteClipboardPaste
+                        }
+                    } else {
+                        // Local macOS app: use the user's chosen mode.
+                        effectiveMode = outputMode
+                    }
+                } else {
+                    // Auto-switch disabled: always use user's chosen mode.
+                    effectiveMode = outputMode
+                }
+                
+                try await textOutputManager.output(text: finalText, mode: effectiveMode)
 
-            let entry = HistoryEntry(
-                rawText: rawText,
-                processedText: processedText,
-                duration: primaryResult.duration,
-                modelUsed: modelsUsed,
-                targetApp: targetApp
-            )
-            try historyStore.save(entry: entry)
+                let entry = HistoryEntry(
+                    rawText: rawText,
+                    processedText: processedText,
+                    duration: primaryResult.duration,
+                    modelUsed: modelsUsed,
+                    targetApp: targetApp
+                )
+                try historyStore.save(entry: entry)
+            } else {
+                AppLog.info("Empty transcription — skipping output and save")
+            }
         } catch {
             runError = "\(error)"
             AppLog.error("Dictation pipeline failed: \(error)")
         }
 
-        lastRunInfo = LastRunInfo(
+        let info = LastRunInfo(
             timestamp: Date(),
             rawText: rawText,
             finalText: finalText,
@@ -155,7 +204,11 @@ public final class DictationController: ObservableObject {
             outputMode: outputMode,
             error: runError
         )
-        pill.setState(.idle)
-        isActive = false
+        // Publish state and update the pill on the main thread (see note above).
+        await MainActor.run {
+            self.lastRunInfo = info
+            self.pill.setState(.idle)
+            self.isActive = false
+        }
     }
 }

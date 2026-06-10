@@ -114,6 +114,8 @@ final class IntegrationTests: XCTestCase {
             pill: pill
         )
         controller.outputMode = .simulatedKeystrokes
+        controller.frontmostAppProvider = { "TextEdit" }
+        controller.frontmostBundleIdProvider = { "com.apple.TextEdit" }
 
         controller.startDictation()
         await controller.stopDictation()
@@ -154,6 +156,8 @@ final class IntegrationTests: XCTestCase {
         controller.secondTranscriber = WhisperEngine(whisperPath: whisperPath, modelManager: mm2)
         controller.consensusStrategy = MajorityVoteConsensus()
         controller.outputMode = sink.mode
+        controller.frontmostAppProvider = { "TextEdit" }
+        controller.frontmostBundleIdProvider = { "com.apple.TextEdit" }
 
         controller.startDictation()
         await controller.stopDictation()
@@ -257,6 +261,11 @@ final class IntegrationTests: XCTestCase {
             pill: pill
         )
 
+        // Pin to a non-remote frontmost app so auto-switch doesn't route output
+        // to a remote mode that isn't registered here (otherwise this depends on
+        // whatever app is frontmost on the dev's machine, e.g. an RDP client).
+        controller.frontmostAppProvider = { "TextEdit" }
+        controller.frontmostBundleIdProvider = { "com.apple.TextEdit" }
         controller.outputMode = .clipboardPaste
         controller.startDictation()
         XCTAssertTrue(controller.isActive)

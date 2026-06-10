@@ -114,7 +114,7 @@ struct HealthCheckView: View {
         switch kind {
         case .openAccessibility: return "Open Settings"
         case .requestMic:        return "Grant"
-        case .downloadModel:     return "Download base"
+        case .downloadModel:     return "Download model"
         case .installWhisper:    return "Install"
         }
     }
@@ -133,20 +133,25 @@ struct HealthCheckView: View {
         case .requestMic:
             _ = await services.permissions.requestMicrophonePermission()
         case .openAccessibility:
-            services.permissions.openAccessibilitySettings()
-            fixNote = "Toggle YOLOWhisp on in Accessibility, then re-check."
+            let granted = services.permissions.requestAccessibilityPermission()
+            if !granted {
+                fixNote = "Toggle YOLOWhisp on in Accessibility, then re-check."
+            }
         case .downloadModel:
             busyStage = stage; downloadProgress = 0
             do {
                 let downloader = ModelDownloader()
-                _ = try await downloader.download(model: "base") { p in
+                // Fetch the most accurate model so users get the best results
+                // out of the box.
+                let best = "large-v3-turbo"
+                _ = try await downloader.download(model: best) { p in
                     Task { @MainActor in downloadProgress = p }
                 }
                 let models = services.modelManager.availableModels()
-                if let m = models.first(where: { $0.name == "base" }) ?? models.first {
+                if let m = models.first(where: { $0.name == best }) ?? models.first {
                     try? services.modelManager.loadModel(m)
                 }
-                fixNote = "Downloaded base model."
+                fixNote = "Downloaded \(best) model."
             } catch {
                 AppLog.error("Model download failed: \(error)")
                 fixNote = "Download failed — see Logs."

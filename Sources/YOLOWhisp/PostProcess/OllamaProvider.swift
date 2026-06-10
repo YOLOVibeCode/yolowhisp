@@ -11,17 +11,27 @@ public final class OllamaProvider: PostProcessing {
     }
 
     public func process(text: String) async throws -> String {
+        // Never send empty content to the model — with only a system prompt and
+        // no text, models tend to echo their instructions back. Return as-is.
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return text
+        }
+
         let url = URL(string: config.endpoint)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let prompt = config.customPrompt
+        let systemPrompt = config.customPrompt
             ?? "Fix punctuation, capitalization, and any misheard words. Return ONLY the corrected text."
 
+        // Use Ollama's dedicated `system` field for the instructions and put the
+        // transcription in `prompt`, so the model treats them as distinct roles
+        // and doesn't blend the instructions into its output.
         let body: [String: Any] = [
             "model": config.modelName,
-            "prompt": "\(prompt)\n\n\(text)",
+            "system": systemPrompt,
+            "prompt": text,
             "stream": false
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

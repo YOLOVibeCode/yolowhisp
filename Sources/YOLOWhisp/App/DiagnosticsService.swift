@@ -225,6 +225,8 @@ final class DiagnosticsService: ObservableObject {
         case .simulatedKeystrokes:   return "Simulated keystrokes"
         case .accessibilityInsertion: return "Accessibility insertion"
         case .clipboardOnly:         return "Clipboard only"
+        case .remoteKeystrokes:      return "Remote keystrokes (RDP/VM)"
+        case .remoteClipboardPaste:  return "Remote clipboard paste (Ctrl+V)"
         }
     }
 }

@@ -34,7 +34,7 @@ public final class DualOpinionPolisher: CandidateMerging {
             modelName: config.modelName,
             endpoint: config.endpoint,
             apiKey: config.apiKey,
-            customPrompt: candidates.count > 1 ? Self.mergePrompt : Self.singlePolishPrompt
+            customPrompt: candidates.count > 1 ? Self.mergePrompt : Self.strictPolishPrompt
         )
 
         let provider = ProviderFactory.make(config: mergeConfig, session: session)
@@ -70,5 +70,27 @@ public final class DualOpinionPolisher: CandidateMerging {
         4. Do NOT add, remove, or rephrase content — only fix errors
 
         Return ONLY the corrected text. No explanations, no labels, no quotes.
+        """
+
+    /// A deliberately conservative prompt: it tells the model to touch the text
+    /// as little as possible. The default prompt tends to "improve" already
+    /// correct text (hyphenating "year over year", adding quotation marks,
+    /// splitting sentences), which hurts accuracy when the raw transcription is
+    /// already good. This variant forbids those rewrites.
+    static let strictPolishPrompt = """
+        You are a careful proofreader. Return the transcription with ONLY the \
+        minimum changes needed for correct punctuation and capitalization. \
+        Follow these rules exactly:
+
+        - Change as little as possible. If the text is already correct, return it unchanged.
+        - Do NOT reword, reorder, split, or merge sentences.
+        - Do NOT add or remove words. Keep numbers and units exactly as written \
+          (e.g. keep "year over year", do not write "year-over-year").
+        - Do NOT add quotation marks, parentheses, or em dashes unless they are \
+          clearly required.
+        - Only fix obviously wrong capitalization and missing or incorrect \
+          end-of-sentence punctuation, commas, and apostrophes.
+
+        Return ONLY the corrected text. No explanations, no labels, no surrounding quotes.
         """
 }

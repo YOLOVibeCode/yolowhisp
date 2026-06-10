@@ -5,12 +5,13 @@ final class ModelDownloadTests: XCTestCase {
     func testAvailableRemoteModels() {
         let downloader = ModelDownloader()
         let models = downloader.availableRemoteModels()
-        XCTAssertEqual(models.count, 5)
+        XCTAssertEqual(models.count, 6)
         XCTAssertTrue(models.contains("tiny"))
         XCTAssertTrue(models.contains("base"))
         XCTAssertTrue(models.contains("small"))
         XCTAssertTrue(models.contains("medium"))
         XCTAssertTrue(models.contains("large"))
+        XCTAssertTrue(models.contains("large-v3-turbo"))
     }
 
     func testDownloadURLConstruction() {

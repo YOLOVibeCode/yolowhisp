@@ -10,15 +10,20 @@ struct YOLOWhispApp: App {
     private static let sharedAudioCapture = AudioCaptureEngine()
     private static let sharedModelManager = ModelManager()
     private static let sharedKeystrokeTyper = KeystrokeTyper()
+    private static let sharedClipboardPaster = ClipboardPaster()
+    private static let sharedRemoteKeystrokeTyper = KeystrokeTyper(emission: .keyCode)
+    private static let sharedRemoteClipboardPaster = ClipboardPaster(restoreDelay: 0.6, pasteModifier: .maskControl)
 
     @StateObject private var controller: DictationController = {
         let audioCapture = sharedAudioCapture
         let modelManager = sharedModelManager
         let transcriber = WhisperEngine(whisperPath: WhisperEngine.resolvedWhisperPath, modelManager: modelManager)
         let textOutputManager = TextOutputManager(outputs: [
-            .clipboardPaste: ClipboardPaster(),
+            .clipboardPaste: sharedClipboardPaster,
             .simulatedKeystrokes: sharedKeystrokeTyper,
             .accessibilityInsertion: AccessibilityInserter(),
+            .remoteKeystrokes: sharedRemoteKeystrokeTyper,
+            .remoteClipboardPaste: sharedRemoteClipboardPaster,
         ])
         let historyStore = HistoryStore(databasePath: {
             let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -43,7 +48,7 @@ struct YOLOWhispApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("outputMode") private var outputModeSetting: String = OutputMode.simulatedKeystrokes.rawValue
     @AppStorage("aiPolishEnabled") private var aiPolishEnabled: Bool = false
-    @AppStorage("whisperModel") private var whisperModelName: String = "base"
+    @AppStorage("whisperModel") private var whisperModelName: String = "large-v3-turbo"
     @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode: Int = 179
     @AppStorage("hotkeyModifiers") private var hotkeyModifiers: Int = 0
     @AppStorage("hotkeyTriggerMode") private var hotkeyTriggerMode: String = TriggerMode.hold.rawValue
@@ -56,8 +61,15 @@ struct YOLOWhispApp: App {
     @AppStorage("aiApiKey") private var aiApiKey: String = ""
     @AppStorage("soundStyle") private var soundStyle: String = SoundFeedback.SoundStyle.tinkPop.rawValue
     @AppStorage("typingSpeed") private var typingSpeed: String = TypingSpeed.medium.rawValue
+    @AppStorage("clipboardRestoreEnabled") private var clipboardRestoreEnabled: Bool = true
+    @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay: Double = 0.4
+    @AppStorage("autoSwitchRemoteTyping") private var autoSwitchRemoteTyping: Bool = true
 
     private let updateChecker = GitHubUpdateChecker()
+    
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
 
     private var historyStore: HistoryStore {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -79,10 +91,25 @@ struct YOLOWhispApp: App {
             .onAppear {
                 AppLog.installCrashHandlers()
                 AppLog.info("YOLOWhisp launched")
+                // Trigger the native system dialog early so macOS prompts the user
+                // automatically rather than waiting for them to find the fix button.
+                _ = PermissionManager().requestAccessibilityPermission()
                 controller.outputMode = OutputMode(rawValue: outputModeSetting) ?? .simulatedKeystrokes
                 controller.postProcessEnabled = aiPolishEnabled
+                controller.autoSwitchRemoteTyping = autoSwitchRemoteTyping
                 SoundFeedback.shared.setStyle(SoundFeedback.SoundStyle(rawValue: soundStyle) ?? .tinkPop)
                 Self.sharedKeystrokeTyper.typingSpeed = TypingSpeed(rawValue: typingSpeed) ?? .medium
+                Self.sharedClipboardPaster.restoresClipboard = clipboardRestoreEnabled
+                Self.sharedClipboardPaster.restoreDelay = clipboardRestoreDelay
+                // Warm the keyboard-layout cache on the main thread now, and keep
+                // it fresh when the user switches input source. The dictation
+                // pipeline reads this cache off-main (TIS APIs would otherwise
+                // trap when called off the main thread).
+                KeystrokeTyper.refreshLayoutCache()
+                NotificationCenter.default.addObserver(
+                    forName: NSTextInputContext.keyboardSelectionDidChangeNotification,
+                    object: nil, queue: .main
+                ) { _ in KeystrokeTyper.refreshLayoutCache() }
                 loadWhisperModel()
                 availableMicrophones = Self.listInputDevices()
                 applyMicrophoneSelection()
@@ -98,8 +125,9 @@ struct YOLOWhispApp: App {
                     let missingWhisper = !FileManager.default.fileExists(atPath: WhisperEngine.defaultWhisperPath)
                     let missingModel = Self.sharedModelManager.currentModel == nil
                     let missingMic = !PermissionManager().checkMicrophonePermission()
-                    if missingWhisper || missingModel || missingMic {
-                        AppLog.info("Auto-opening Diagnostics (missing: \(missingWhisper ? "whisper " : "")\(missingModel ? "model " : "")\(missingMic ? "mic" : ""))")
+                    let missingAX = !PermissionManager().checkAccessibilityPermission()
+                    if missingWhisper || missingModel || missingMic || missingAX {
+                        AppLog.info("Auto-opening Diagnostics (missing: \(missingWhisper ? "whisper " : "")\(missingModel ? "model " : "")\(missingMic ? "mic " : "")\(missingAX ? "accessibility" : ""))")
                         openDiagnosticsWindow()
                     }
                 }
@@ -162,6 +190,10 @@ struct YOLOWhispApp: App {
             }
             .disabled(!updateChecker.canCheckForUpdates)
             Divider()
+            Text("YOLOWhisp \(appVersion)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Divider()
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
@@ -188,6 +220,15 @@ struct YOLOWhispApp: App {
         .onChange(of: aiApiKey) { _, _ in setupDualOpinion(); setupPostProcessor() }
         .onChange(of: typingSpeed) { _, newValue in
             Self.sharedKeystrokeTyper.typingSpeed = TypingSpeed(rawValue: newValue) ?? .medium
+        }
+        .onChange(of: clipboardRestoreEnabled) { _, newValue in
+            Self.sharedClipboardPaster.restoresClipboard = newValue
+        }
+        .onChange(of: clipboardRestoreDelay) { _, newValue in
+            Self.sharedClipboardPaster.restoreDelay = newValue
+        }
+        .onChange(of: autoSwitchRemoteTyping) { _, newValue in
+            controller.autoSwitchRemoteTyping = newValue
         }
     }
 
@@ -262,7 +303,7 @@ struct YOLOWhispApp: App {
             controller.postProcessor = nil
             return
         }
-        let config = aiProviderConfig(customPrompt: DualOpinionPolisher.singlePolishPrompt)
+        let config = aiProviderConfig(customPrompt: DualOpinionPolisher.strictPolishPrompt)
         controller.postProcessor = ProviderFactory.make(config: config)
     }
 
@@ -377,7 +418,7 @@ struct YOLOWhispApp: App {
             modelName: model.isEmpty ? "llama3.2" : model,
             endpoint: endpoint,
             apiKey: key.isEmpty ? nil : key,
-            customPrompt: DualOpinionPolisher.singlePolishPrompt
+            customPrompt: DualOpinionPolisher.strictPolishPrompt
         )
     }
 
